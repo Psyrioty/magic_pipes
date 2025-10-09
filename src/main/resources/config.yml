@@ -1,0 +1,6 @@
+sql:
+  login: admin
+  password: qwerty123
+  ip: localhost
+  db_name: test
+  port: 3306
