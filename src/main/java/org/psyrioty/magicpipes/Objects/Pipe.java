@@ -1,30 +1,21 @@
-package org.psyrioty.magic_pipes.Objects;
+package org.psyrioty.magicpipes.Objects;
 
-import com.google.gson.JsonObject;
 import org.bukkit.*;
 import org.bukkit.block.*;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.*;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.psyrioty.magic_pipes.Database.Requests;
-import org.psyrioty.magic_pipes.Magic_pipes;
-import org.w3c.dom.ls.LSException;
+import org.psyrioty.magicpipes.Database.Requests;
+import org.psyrioty.magicpipes.magicpipes;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
 import java.io.ByteArrayInputStream;
@@ -32,9 +23,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
-public class Pipe implements InventoryHolder, Listener {
+public class Pipe implements InventoryHolder{
     private final int x;
     private final int y;
     private final int z;
@@ -101,7 +91,6 @@ public class Pipe implements InventoryHolder, Listener {
         }else if(type == 2){
             this.inventory = Bukkit.createInventory(this, 54, "WHITE LIST");
         }
-        Bukkit.getPluginManager().registerEvents(this, Magic_pipes.getPlugin());
 
 
         String value = "";
@@ -121,12 +110,12 @@ public class Pipe implements InventoryHolder, Listener {
             key = "pipe_receiver";
         }
 
-        pipeItemStackBlock = Magic_pipes.getPlugin().createCustomHead(value, key, name);
+        pipeItemStackBlock = magicpipes.getPlugin().createCustomHead(value, key, name);
 
-        Bukkit.getScheduler().runTask(Magic_pipes.getPlugin(), () -> {
+        Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
             Location location = new Location(world, x, y, z);
             location.getBlock().setType(Material.PLAYER_HEAD);
-            Bukkit.getScheduler().runTaskLater(Magic_pipes.getPlugin(), () -> {
+            Bukkit.getScheduler().runTaskLater(magicpipes.getPlugin(), () -> {
                 Skull skullBlock = (Skull) location.getBlock().getState();
                 SkullMeta skullMeta = (SkullMeta) pipeItemStackBlock.getItemMeta();
                 skullBlock.setOwnerProfile(skullMeta.getOwnerProfile());
@@ -164,9 +153,9 @@ public class Pipe implements InventoryHolder, Listener {
     }
 
     private void Update(){
-        update = Bukkit.getServer().getScheduler().runTaskTimer(Magic_pipes.getPlugin(), () -> {
-            //Bukkit.getLogger().info("Ложим сюда " + this.inventoryList);
-            //Bukkit.getLogger().info("Берём от сюда " + this.inventoryListTake);
+        update = Bukkit.getServer().getScheduler().runTaskTimer(magicpipes.getPlugin(), () -> {
+            ////Bukkit.getLogger().info("Ложим сюда " + this.inventoryList);
+            ////Bukkit.getLogger().info("Берём от сюда " + this.inventoryListTake);
             Location chunkLocation = new Location(world, x, y, z);
             boolean playerNear = false;
             for (Player player : world.getPlayers()) {
@@ -187,10 +176,11 @@ public class Pipe implements InventoryHolder, Listener {
                 }
                 for (BlockState blockStateTake : this.inventoryListTake) {
                     int blockStateGiveIterator = 0;
+                    //В ЭТОМ БЛОКЕ ОШИБКА
                     for (BlockState blockStateGive : this.inventoryList) {
                         Container containerTake = (Container) blockStateTake;
                         Container containerGive = (Container) blockStateGive;
-                        if (containerTake != null && containerGive != null) {
+                        if (containerTake != null && containerGive != null && !containerGive.equals(containerTake)) {
                             int itemStackSlot = 0;
                             for (ItemStack itemStackTake : containerTake.getInventory()) {
                                 if (itemStackTake != null) {
@@ -250,19 +240,29 @@ public class Pipe implements InventoryHolder, Listener {
                                         itemGiveSlot++;
                                     }
 
-
-                                    if (!inBlocked && !inBlockedReceiver) {
+                                    if (
+                                            !inBlocked && !inBlockedReceiver
+                                            && (whiteListReceiverIsNull || inWhiteListReceiver)
+                                            && (whiteListNull || inWhiteList)
+                                    ) {
                                         if (
                                                 (inWhiteList || whiteListNull)
                                                         && (inWhiteListReceiver || whiteListReceiverIsNull)
                                         ) {
                                             boolean isSimilar = false;
-                                            if (
-                                                    containerGive.getType() != Material.CRAFTER
-                                                    && containerGive.getType() != Material.FURNACE
-                                                    && containerGive.getType() != Material.BLAST_FURNACE
-                                                    && containerGive.getType() != Material.SMOKER
-                                            ) {
+                                            //if (
+                                            //        containerGive.getType() != Material.CRAFTER
+                                            //        && containerGive.getType() != Material.FURNACE
+                                            //        && containerGive.getType() != Material.BLAST_FURNACE
+                                            //        && containerGive.getType() != Material.SMOKER
+                                            //) {
+                                                //Bukkit.getLogger().info("inBlocked: " + inBlocked);
+                                                //Bukkit.getLogger().info("inBlockedReceiver: " + inBlockedReceiver);
+                                                //Bukkit.getLogger().info("whiteListReceiverIsNull: " + whiteListReceiverIsNull);
+                                                //Bukkit.getLogger().info("inWhiteListReceiver: " + inWhiteListReceiver);
+                                                //Bukkit.getLogger().info("whiteListNull: " + whiteListNull);
+                                                //Bukkit.getLogger().info("inWhiteList: " + inWhiteList);
+                                                //Bukkit.getLogger().info("1");
                                                 for (ItemStack itemStackGive : containerGive.getInventory()) {
                                                     if (itemStackGive != null) {
                                                         if (itemStackGive.isSimilar(itemStackTake)) {
@@ -285,7 +285,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                         }
                                                     }
                                                 }
-                                            }
+                                            //}
                                             if (!isSimilar) {
                                                 boolean isNull = false;
                                                 if (
@@ -300,12 +300,13 @@ public class Pipe implements InventoryHolder, Listener {
                                                                 || containerGive.getType() == Material.BLAST_FURNACE
                                                                 || containerGive.getType() == Material.SMOKER
                                                         )
-                                                                && whiteListSlot < containerGive.getInventory().getSize()
+                                                                //&& whiteListSlot < containerGive.getInventory().getSize()
                                                 ) {
-                                                    if (whiteListReceiverIsNull) {
-                                                        if (containerGive.getInventory().getItem(whiteListSlot) == null) {
+                                                    //if (whiteListReceiverIsNull) {
+                                                        if (containerGive.getInventory().getItem(whiteListReceiverSlot) == null) {
+                                                            ////Bukkit.getLogger().info("2");
                                                             isNull = true;
-                                                        }
+                                                    //    }
                                                     } else {
                                                         if (
                                                                 containerGive.getInventory().getItem(whiteListReceiverSlot) == null
@@ -315,6 +316,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                                 && containerGive.getType() == Material.BLAST_FURNACE
                                                                 && containerGive.getType() == Material.SMOKER
                                                         ) {
+                                                            ////Bukkit.getLogger().info("3");
                                                             isNull = true;
                                                         }/* else {
                                                             for (ItemStack itemStack: inventoryWhiteListReceiver){
@@ -344,6 +346,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                             && containerGive.getType() != Material.SMOKER
 
                                                     ) {
+                                                        //Bukkit.getLogger().info("4");
                                                         containerGive.getInventory().addItem(itemStackTake);
                                                         itemStackTake.setAmount(0);
                                                     } else if (containerGive.getType() == Material.BREWING_STAND) {
@@ -388,7 +391,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                                 itemStackTake.setAmount(0);
                                                             }
                                                         }
-                                                    } else if (
+                                                    }/* else if (
                                                             (whiteListSlot < containerGive.getInventory().getSize() && whiteListReceiverIsNull)
                                                     ) {
                                                         int itemStackRemainderAmount = 0;
@@ -406,7 +409,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                                 itemStackTake.setAmount(itemStackRemainderAmount);
                                                             }
                                                         }
-                                                    } else if (
+                                                    }*/ else if (
                                                             (whiteListReceiverSlot < containerGive.getInventory().getSize())
                                                     ) {
                                                         int itemStackRemainderAmount = 0;
@@ -456,6 +459,7 @@ public class Pipe implements InventoryHolder, Listener {
                                                         && containerGive.getType() != Material.SMOKER
                                                 )
                                                 {
+                                                    //Bukkit.getLogger().info("5");
                                                     if(isSimilar){
                                                         if (itemStackGive.getMaxStackSize() >= itemStackTake.getAmount() + itemStackGive.getAmount()) {
                                                             itemStackGive.setAmount(itemStackGive.getAmount() + itemStackTake.getAmount());
@@ -501,6 +505,7 @@ public class Pipe implements InventoryHolder, Listener {
                         }
                         blockStateGiveIterator++;
                     }
+                    //КОНЕЦ ОШИБКИ
 
                 }
 
@@ -514,7 +519,7 @@ public class Pipe implements InventoryHolder, Listener {
                     case 0:
                         break;
                     case 1:
-                        Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
+                        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
                             boolean pipeFind = true;
                             List<Pipe> pipes = new ArrayList<>();
                             pipes.add(this);
@@ -569,7 +574,7 @@ public class Pipe implements InventoryHolder, Listener {
                         face == BlockFace.EAST || face == BlockFace.WEST) {
                     Block blockFace = block.getRelative(face);
 
-                    for (Pipe pipe : Magic_pipes.getPlugin().getPipes()) {
+                    for (Pipe pipe : magicpipes.getPlugin().getPipes()) {
                         if (
                                 pipe.getWorld() == blockFace.getWorld()
                                         && pipe.getX() == blockFace.getX()
@@ -577,8 +582,8 @@ public class Pipe implements InventoryHolder, Listener {
                                         && pipe.getZ() == blockFace.getZ()
                                         && (
                                         pipe.getType() == 0
-                                                || pipe.getType() == 1
-                                                || pipe.getType() == 2
+                                        || pipe.getType() == 1
+                                        || pipe.getType() == 2
                                 )
                                         && !cashPipe.contains(pipe)
                         ) {
@@ -587,8 +592,7 @@ public class Pipe implements InventoryHolder, Listener {
                         }
                     }
                     if(materialList.contains(blockFace.getType()) && (
-                            oldPipe.getType() == 0
-                                    || oldPipe.getType() == 2
+                            oldPipe.getType() == 2
                     )){
                         int i = 0;
                         boolean blockInCash = false;
@@ -607,7 +611,7 @@ public class Pipe implements InventoryHolder, Listener {
                         }
 
                         if(!blockInCash) {
-                            Bukkit.getServer().getScheduler().runTask(Magic_pipes.getPlugin(), () -> {
+                            Bukkit.getServer().getScheduler().runTask(magicpipes.getPlugin(), () -> {
                                 BlockState blockState = blockFace.getState();
                                 this.inventoryList.add(blockState);
                                 cashContainersBlock.add(blockFace);
@@ -770,7 +774,7 @@ public class Pipe implements InventoryHolder, Listener {
 
     public void remove(){
         Requests.removePipe(this);
-        Magic_pipes.getPlugin().getPipes().remove(this);
+        magicpipes.getPlugin().getPipes().remove(this);
         if(update != null) {
             update.cancel();
         }
@@ -881,20 +885,5 @@ public class Pipe implements InventoryHolder, Listener {
     @Override
     public Inventory getInventory() {
         return inventory;
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onChunkUnload(ChunkUnloadEvent event){
-        Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
-            int i = 0;
-            for(Block cashBLock: cashContainersBlock){
-                if(cashBLock.getChunk() == event.getChunk())
-                {
-                    cashContainersBlock.remove(i);
-                    cashBlockStateContainers.remove(i);
-                }
-                i++;
-            }
-        });
     }
 }

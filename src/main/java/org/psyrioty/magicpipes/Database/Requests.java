@@ -1,28 +1,65 @@
-package org.psyrioty.magic_pipes.Database;
+package org.psyrioty.magicpipes.Database;
 
 import org.bukkit.Bukkit;
-import org.psyrioty.magic_pipes.Magic_pipes;
-import org.psyrioty.magic_pipes.Objects.Pipe;
+import org.psyrioty.magicpipes.magicpipes;
+import org.psyrioty.magicpipes.Objects.Pipe;
 
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Requests {
-    static String sqlLogin = Magic_pipes.getPlugin().getConfig().getString("sql.login");
-    static String sqlPass = Magic_pipes.getPlugin().getConfig().getString("sql.password");
+    static String sqlLogin = magicpipes.getPlugin().getConfig().getString("sql.login");
+    static String sqlPass = magicpipes.getPlugin().getConfig().getString("sql.password");
     static String jdbc = "jdbc:mysql://"
-        + Magic_pipes.getPlugin().getConfig().getString("sql.ip") + ":"
-        + Magic_pipes.getPlugin().getConfig().getString("sql.port") + "/"
-        + Magic_pipes.getPlugin().getConfig().getString("sql.db_name") + "?user="
+        + magicpipes.getPlugin().getConfig().getString("sql.ip") + ":"
+        + magicpipes.getPlugin().getConfig().getString("sql.port") + "/"
+        + magicpipes.getPlugin().getConfig().getString("sql.db_name") + "?user="
         + sqlLogin + "&password="
         + sqlPass;
+
+    private static Connection connection;
+
+
+    public static void connect() {
+        try {
+            if (connection != null && !connection.isClosed()) return;
+            connection = DriverManager.getConnection(jdbc, sqlLogin, sqlPass);
+            Bukkit.getLogger().info("✅ Database connected!");
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Failed to connect to database: " + e.getMessage());
+        }
+    }
+
+    public static Connection getConnection() {
+        try {
+            if (connection == null || connection.isClosed()) {
+                connect();
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Connection check failed: " + e.getMessage());
+        }
+        return connection;
+    }
+
+    public static void disconnect() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+                Bukkit.getLogger().info("🔌 Database disconnected!");
+            }
+        } catch (SQLException e) {
+            Bukkit.getLogger().severe("❌ Failed to disconnect: " + e.getMessage());
+        }
+    }
 
     public static void createPipe(Pipe pipe) {
         String sql = "INSERT INTO magicpipe_pipe (x, y, z, world, type) VALUES (?, ?, ?, ?, ?)";
 
-        try (Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass);
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
+        try {
+            Connection conn = getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+
 
             stmt.setInt(1, pipe.getX());
             stmt.setInt(2, pipe.getY());
@@ -42,9 +79,10 @@ public class Requests {
         List<Pipe> pipes = new ArrayList<>();
         String sql = "SELECT * FROM magicpipe_pipe";
 
-        try (Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass);
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             ResultSet rs = stmt.executeQuery()) {
+        try {
+            Connection conn = getConnection();
+            PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
                 Pipe pipe = new Pipe(
@@ -56,7 +94,7 @@ public class Requests {
                 );
                 pipes.add(pipe);
             }
-
+            Bukkit.getLogger().info("✅Все трубы загружены.");
         } catch (SQLException e) {
             Bukkit.getLogger().info("MagicPipe getAllPipes() error: " + e.getMessage());
         } catch (Exception e) {
@@ -73,7 +111,8 @@ public class Requests {
         String sqlDeletePipe = "DELETE FROM magicpipe_pipe WHERE x = ? AND y = ? AND z = ? AND world = ?";
         String sqlDeleteItems = "DELETE FROM magicpipe_items WHERE pipe_id = ?";
 
-        try (Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass)) {
+        try {
+            Connection conn = getConnection();
 
             int id = 0;
 
@@ -122,8 +161,8 @@ public class Requests {
         String sqlPipe = "SELECT id FROM magicpipe_pipe WHERE x = ? AND y = ? AND z = ? AND world = ?";
         String sqlDelete = "DELETE FROM magicpipe_items WHERE pipe_id = ?";
         String sqlInsert = "INSERT INTO magicpipe_items (base64, pipe_id, slot) VALUES (?, ?, ?)";
-
-        try (Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass)) {
+        try {
+            Connection conn = getConnection();
 
             // 1. Получаем id
             int id = 0;
@@ -174,10 +213,9 @@ public class Requests {
         String sqlPipe = "SELECT id FROM magicpipe_pipe WHERE x = ? AND y = ? AND z = ? AND world = ?";
         String sqlItems = "SELECT slot, base64 FROM magicpipe_items WHERE pipe_id = ?";
 
-        try (
-                Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass);
-                PreparedStatement stmtPipe = conn.prepareStatement(sqlPipe)
-        ) {
+        try {
+            Connection conn = getConnection();
+            PreparedStatement stmtPipe = conn.prepareStatement(sqlPipe);
             stmtPipe.setInt(1, pipe.getX());
             stmtPipe.setInt(2, pipe.getY());
             stmtPipe.setInt(3, pipe.getZ());
@@ -210,7 +248,8 @@ public class Requests {
         String sqlSelect = "SELECT id FROM magicpipe_pipe WHERE x = ? AND y = ? AND z = ? AND world = ?";
         String sqlDelete = "DELETE FROM magicpipe_items WHERE pipe_id = ?";
 
-        try (Connection conn = DriverManager.getConnection(jdbc, sqlLogin, sqlPass)) {
+        try {
+            Connection conn = getConnection();
 
             int id = 0;
 

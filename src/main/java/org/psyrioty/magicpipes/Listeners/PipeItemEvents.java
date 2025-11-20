@@ -1,4 +1,4 @@
-package org.psyrioty.magic_pipes.Listeners;
+package org.psyrioty.magicpipes.Listeners;
 
 import org.bukkit.event.Listener;
 

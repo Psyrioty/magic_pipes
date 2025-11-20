@@ -1,5 +1,5 @@
-name: magic_pipes
+name: magicpipes
 version: '1.0-SNAPSHOT'
-main: org.psyrioty.magic_pipes.Magic_pipes
+main: org.psyrioty.magicpipes.magicpipes
 api-version: '1.21'
 depend: [WorldGuard]

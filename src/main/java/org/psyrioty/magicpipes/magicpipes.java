@@ -1,15 +1,11 @@
-package org.psyrioty.magic_pipes;
+package org.psyrioty.magicpipes;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import org.bukkit.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -17,20 +13,19 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.profile.PlayerProfile;
 import org.bukkit.profile.PlayerTextures;
-import org.psyrioty.magic_pipes.Database.Requests;
-import org.psyrioty.magic_pipes.Listeners.PipeBlockEvents;
-import org.psyrioty.magic_pipes.Listeners.PipeItemEvents;
-import org.psyrioty.magic_pipes.Listeners.PipeOtherEvents;
-import org.psyrioty.magic_pipes.Objects.Pipe;
+import org.psyrioty.magicpipes.Database.Requests;
+import org.psyrioty.magicpipes.Listeners.PipeBlockEvents;
+import org.psyrioty.magicpipes.Listeners.PipeItemEvents;
+import org.psyrioty.magicpipes.Listeners.PipeOtherEvents;
+import org.psyrioty.magicpipes.Objects.Pipe;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.*;
 
-public final class Magic_pipes extends JavaPlugin {
-    static Magic_pipes plugin;
+public final class magicpipes extends JavaPlugin {
+    static magicpipes plugin;
     List<Pipe> pipes = new ArrayList<>();
     PluginManager pm;
 
@@ -40,7 +35,9 @@ public final class Magic_pipes extends JavaPlugin {
     @Override
     public void onEnable() {
         plugin = this;
-        createDataRegenerationFile();
+        createDataFile();
+
+        Requests.connect();
 
         pm = Bukkit.getPluginManager();
         pm.registerEvents(new PipeBlockEvents(), this);
@@ -58,13 +55,14 @@ public final class Magic_pipes extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        Requests.disconnect();
     }
 
     private void setAllPipes(){
         pipes = Requests.getAllPipes();
     }
 
-    public void createDataRegenerationFile() {
+    public void createDataFile() {
         configFile = new File(getDataFolder(), "config.yml");
 
         if (!configFile.exists()) {
@@ -176,7 +174,7 @@ public final class Magic_pipes extends JavaPlugin {
         return head;
     }
 
-    public static Magic_pipes getPlugin() {
+    public static magicpipes getPlugin() {
         return plugin;
     }
 

@@ -1,9 +1,11 @@
-package org.psyrioty.magic_pipes.Listeners;
+package org.psyrioty.magicpipes.Listeners;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.entity.Item;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -16,14 +18,12 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.psyrioty.magic_pipes.Database.Requests;
-import org.psyrioty.magic_pipes.Magic_pipes;
-import org.psyrioty.magic_pipes.Objects.Pipe;
+import org.psyrioty.magicpipes.Database.Requests;
+import org.psyrioty.magicpipes.magicpipes;
+import org.psyrioty.magicpipes.Objects.Pipe;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -33,9 +33,9 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void PipeBlockBreak(BlockBreakEvent event){
 
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
+        Bukkit.getServer().getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
             Block block = event.getBlock();
-            Pipe pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
+            Pipe pipe = magicpipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
             if(pipe != null){
                 pipe.remove();
             }
@@ -45,9 +45,9 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBlockPhysics(BlockPhysicsEvent event) {
         Block block = event.getSourceBlock();
-        Pipe pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
+        Pipe pipe = magicpipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
         if(pipe == null){
-            pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(event.getBlock().getX(), event.getBlock().getY(), event.getBlock().getZ(), event.getBlock().getWorld());
+            pipe = magicpipes.getPlugin().findPipeForXYZWorld(event.getBlock().getX(), event.getBlock().getY(), event.getBlock().getZ(), event.getBlock().getWorld());
         }
         if(pipe != null) {
             if (
@@ -62,7 +62,7 @@ public class PipeOtherEvents implements Listener {
                 event.setCancelled(true);
                 block.setType(Material.AIR);
                 //block.getWorld().dropItemNaturally(block.getLocation(), pipeItemStackBlock);
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), pipe::remove);
+                Bukkit.getServer().getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), pipe::remove);
             } else if (
                     event.getSourceBlock().getType() == Material.WATER
                             && event.getBlock().getType() == Material.PLAYER_HEAD
@@ -76,7 +76,7 @@ public class PipeOtherEvents implements Listener {
                 event.getBlock().setType(Material.AIR);
                 event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), pipe.getPipeItemStackBlock());
 
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), pipe::remove);
+                Bukkit.getServer().getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), pipe::remove);
             }
         }
     }
@@ -84,7 +84,7 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onItemDrop(BlockDropItemEvent event){
         Block block = event.getBlock();
-        Pipe pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
+        Pipe pipe = magicpipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
         if(pipe == null){
             return;
         }
@@ -126,14 +126,14 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
         for(Block block: event.getBlocks()){
-            Pipe pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
+            Pipe pipe = magicpipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
             if(pipe != null) {
                 if (!pipe.getIsRemove()) {
                     event.setCancelled(true);
                     block.setType(Material.AIR);
                     block.getWorld().dropItemNaturally(block.getLocation(), pipe.getPipeItemStackBlock());
 
-                    Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), pipe::remove);
+                    Bukkit.getServer().getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), pipe::remove);
                     break;
                 }
             }
@@ -143,14 +143,14 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
         for (Block block: event.getBlocks()){
-            Pipe pipe = Magic_pipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
+            Pipe pipe = magicpipes.getPlugin().findPipeForXYZWorld(block.getX(), block.getY(), block.getZ(), block.getWorld());
             if(pipe != null) {
                 if (!pipe.getIsRemove()) {
                     event.setCancelled(true);
                     block.setType(Material.AIR);
                     block.getWorld().dropItemNaturally(block.getLocation(), pipe.getPipeItemStackBlock());
 
-                    Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), pipe::remove);
+                    Bukkit.getServer().getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), pipe::remove);
                     break;
                 }
             }
@@ -159,13 +159,13 @@ public class PipeOtherEvents implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClose(InventoryCloseEvent event) throws IOException {
-        Inventory pipeInventory = Magic_pipes.getPlugin().getPipeInventoryForInventory(event.getInventory());
+        Inventory pipeInventory = magicpipes.getPlugin().getPipeInventoryForInventory(event.getInventory());
         Pipe pipe;
         if (pipeInventory == null){
             return;
         }
 
-        pipe = Magic_pipes.getPlugin().getPipes().stream().filter(pipe1 -> pipeInventory == pipe1.getInventory()).findFirst().orElse(null);
+        pipe = magicpipes.getPlugin().getPipes().stream().filter(pipe1 -> pipeInventory == pipe1.getInventory()).findFirst().orElse(null);
         if(pipe == null){
             return;
         }
@@ -181,11 +181,11 @@ public class PipeOtherEvents implements Listener {
             i++;
         }
         if(!itemBase64List.isEmpty()){
-            Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
+            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
                 Requests.itemsAdd(pipe, itemBase64List, slot);
             });
         }else{
-            Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
+            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
                 Requests.removeItem(pipe);
             });
         }
@@ -194,13 +194,13 @@ public class PipeOtherEvents implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryClick(InventoryClickEvent event) throws IOException {
         if(event.getInventory().getHolder() instanceof Pipe) {
-            Inventory pipeInventory = Magic_pipes.getPlugin().getPipeInventoryForInventory(event.getInventory());
+            Inventory pipeInventory = magicpipes.getPlugin().getPipeInventoryForInventory(event.getInventory());
             Pipe pipe;
             if (pipeInventory == null){
                 return;
             }
 
-            pipe = Magic_pipes.getPlugin().getPipes().stream().filter(pipe1 -> pipeInventory == pipe1.getInventory()).findFirst().orElse(null);
+            pipe = magicpipes.getPlugin().getPipes().stream().filter(pipe1 -> pipeInventory == pipe1.getInventory()).findFirst().orElse(null);
             if(pipe == null){
                 return;
             }
@@ -241,5 +241,35 @@ public class PipeOtherEvents implements Listener {
 
         dataOutput.close();
         return Base64Coder.encodeLines(outputStream.toByteArray());
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onChunkUnload(ChunkUnloadEvent event){
+        Chunk chunkEvent = event.getChunk();
+        int chunkEventX = event.getChunk().getX();
+        int chunkEventZ = event.getChunk().getZ();
+        World chunkWorld = event.getWorld();
+        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+            int i = 0;
+            for(Pipe pipe: magicpipes.getPlugin().getPipes()) {
+                List<Block> cashContainersBlock = pipe.getCashContainersBlock();
+                for (Block cashBlock : cashContainersBlock) {
+                    Chunk chunkBlock = cashBlock.getChunk();
+                    int chunkBlockX = chunkBlock.getX();
+                    int chunkBlockZ = chunkBlock.getZ();
+                    World chunkBlockWorld = cashBlock.getWorld();
+                    if (
+                            chunkBlockWorld == chunkWorld
+                                    && chunkBlockX == chunkEventX
+                                    && chunkBlockZ == chunkEventZ
+                    ) {
+                        List<BlockState> cashBlockStateContainers = pipe.getCashBlockStateContainers();
+                        cashContainersBlock.remove(i);
+                        cashBlockStateContainers.remove(i);
+                    }
+                    i++;
+                }
+            }
+        });
     }
 }
