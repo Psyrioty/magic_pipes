@@ -23,6 +23,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class Pipe implements InventoryHolder{
     private final int x;
@@ -35,20 +36,19 @@ public class Pipe implements InventoryHolder{
     private byte type = 0;
 
     private final World world;
+    int chunkX, chunkZ;
 
-    private BukkitTask update;
     List <Material> materialList = new ArrayList<>();
 
-    private List<BlockState> inventoryList = new ArrayList<>();
-    private List<BlockState> inventoryListTake = new ArrayList<>();
-    private List<Pipe> cashPipe = new ArrayList<>();
-    private Inventory inventory;
-    private ItemStack itemStackForPipeItems;
+    private Inventory inventory; //whitelist
     private ItemStack pipeItemStackBlock = new ItemStack(Material.PLAYER_HEAD);
-    private List<Inventory> whiteListReceiver = new ArrayList<>();
 
-    private List<Block> cashContainersBlock = new ArrayList<>();
-    private List<BlockState> cashBlockStateContainers = new ArrayList<>();
+
+    private List<PipeContainer> takePipeContainers = new ArrayList<>();
+    private List<PipeContainer> pipeContainers = new ArrayList<>();
+    private List<Pipe> pipes = new ArrayList<>();
+    private List<Pipe> parentPipes = new ArrayList<>();
+    private boolean isActive = false;
 
     public Pipe(int x, int y, int z, World world, byte type) throws Exception {
         this.x = x;
@@ -56,6 +56,10 @@ public class Pipe implements InventoryHolder{
         this.z = z;
         this.world = world;
         this.type = type;
+
+        Chunk chunk = world.getChunkAt(new Location(world, x, y, z));
+        chunkX = chunk.getX();
+        chunkZ = chunk.getZ();
 
         materialList.add(Material.CHEST);
         materialList.add(Material.SHULKER_BOX);
@@ -86,7 +90,6 @@ public class Pipe implements InventoryHolder{
         materialList.add(Material.SMOKER);
 
         if(type == 1) {
-            Update();
             this.inventory = Bukkit.createInventory(this, 54, "WHITE LIST");
         }else if(type == 2){
             this.inventory = Bukkit.createInventory(this, 54, "WHITE LIST");
@@ -121,6 +124,11 @@ public class Pipe implements InventoryHolder{
                 skullBlock.setOwnerProfile(skullMeta.getOwnerProfile());
                 skullBlock.update();
             }, 1L);
+            if(type == 2){
+                pipeContainers.addAll(checkContainersPlaced(world.getBlockAt(x, y, z)));
+            }else if(type == 1) {
+                takePipeContainers.addAll(checkContainersPlaced(world.getBlockAt(x, y, z)));
+            }
         });
 
 
@@ -142,697 +150,885 @@ public class Pipe implements InventoryHolder{
                 }
             }
         }
-    }
+        isActive = magicpipes.getPlugin().isStartPipes();
 
-    public List<Block> getCashContainersBlock() {
-        return cashContainersBlock;
-    }
-
-    public List<BlockState> getCashBlockStateContainers() {
-        return cashBlockStateContainers;
-    }
-
-    private void Update(){
-        update = Bukkit.getServer().getScheduler().runTaskTimer(magicpipes.getPlugin(), () -> {
-            ////Bukkit.getLogger().info("Ложим сюда " + this.inventoryList);
-            ////Bukkit.getLogger().info("Берём от сюда " + this.inventoryListTake);
-            Location chunkLocation = new Location(world, x, y, z);
-            boolean playerNear = false;
-            for (Player player : world.getPlayers()) {
-                if (player.getLocation().distanceSquared(chunkLocation) <= 112 * 112) {
-                    playerNear = true;
-                    break;
+        if(magicpipes.getPlugin().isStartPipes()) {
+            for (Pipe activePipe : magicpipes.getPlugin().getActivePipe()) {
+                if (checkPipe(this, activePipe)) {
+                    switch (type) {
+                        case 0:
+                            if (activePipe.getType() == 1) {
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
+                                }
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                            } else if (activePipe.getType() == 2) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
+                                }
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
+                                }
+                            } else if (activePipe.getType() == 0) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
+                                }
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
+                                }
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
+                                }
+                            }
+                            break;
+                        case 1:
+                            if (activePipe.getType() == 2 || activePipe.getType() == 0) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
+                                }
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
+                                }
+                            }
+                            break;
+                        case 2:
+                            if (activePipe.getType() == 1 || activePipe.getType() == 0) {
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
+                                }
+                            }
+                            break;
+                    }
                 }
             }
-            if(playerNear){
-                boolean whiteListNull = true;
-                for (ItemStack itemStackWhiteList : this.inventory.getContents()) {
-                    if (itemStackWhiteList != null) {
-                        if (itemStackWhiteList.getType() != Material.BARRIER) {
-                            whiteListNull = false;
-                        }
-                        break;
-                    }
-                }
-                for (BlockState blockStateTake : this.inventoryListTake) {
-                    int blockStateGiveIterator = 0;
-                    //В ЭТОМ БЛОКЕ ОШИБКА
-                    for (BlockState blockStateGive : this.inventoryList) {
-                        Container containerTake = (Container) blockStateTake;
-                        Container containerGive = (Container) blockStateGive;
-                        if (containerTake != null && containerGive != null && !containerGive.equals(containerTake)) {
-                            int itemStackSlot = 0;
-                            for (ItemStack itemStackTake : containerTake.getInventory()) {
-                                if (itemStackTake != null) {
-                                    boolean inWhiteList = false;
-                                    boolean inBlocked = false;
-                                    boolean inBlockedReceiver = false;
-                                    int whiteListSlot = 0;
-                                    int whiteListReceiverSlot = 0;
-                                    boolean inWhiteListReceiver = false;
-                                    boolean whiteListReceiverIsNull = true;
-                                    Inventory inventoryWhiteListReceiver = null;
-
-                                    for (ItemStack itemStackWhiteList : this.inventory.getContents()) {
-                                        if (itemStackWhiteList != null) {
-                                            if (itemStackTake.isSimilar(itemStackWhiteList)) {
-                                                inWhiteList = true;
-                                                break;
-                                            }
-
-                                            if (whiteListSlot == itemStackSlot && itemStackWhiteList.getType() == Material.BARRIER) {
-                                                inBlocked = true;
-                                            }
-                                        }
-                                        whiteListSlot++;
-                                    }
-
-                                    int itemGiveSlot = 0;
-                                    List<Integer> blockReceiveSlots = new ArrayList<>();
-                                    for (ItemStack itemStack : containerGive.getInventory()) {
-                                        if (whiteListReceiver != null) {
-                                            if (whiteListReceiver.size() > blockStateGiveIterator) {
-                                                inventoryWhiteListReceiver = whiteListReceiver.get(blockStateGiveIterator);
-                                            }
-                                            if (inventoryWhiteListReceiver != null) {
-                                                int whiteListReceiveSlotContainer = 0;
-                                                for (ItemStack itemStackWhiteListReceiver : inventoryWhiteListReceiver.getContents()) {
-                                                    if (itemStackWhiteListReceiver != null) {
-                                                        if (itemStackWhiteListReceiver.isSimilar(itemStackTake)) {
-                                                            inWhiteListReceiver = true;
-                                                            whiteListReceiverIsNull = false;
-                                                            whiteListReceiverSlot = whiteListReceiveSlotContainer;
-                                                            //whiteListSlot = whiteListReceiverSlot;
-                                                            //break;
-                                                        }
-                                                        if (itemStackWhiteListReceiver.getType() != Material.BARRIER) {
-                                                            whiteListReceiverIsNull = false;
-                                                        }
-                                                        if (whiteListReceiverSlot == itemGiveSlot && itemStackWhiteListReceiver.getType() == Material.BARRIER) {
-                                                            inBlockedReceiver = true;
-                                                            blockReceiveSlots.add(whiteListReceiveSlotContainer);
-                                                        }
-                                                    }
-                                                    whiteListReceiveSlotContainer++;
-                                                }
-                                            }
-                                        }
-                                        itemGiveSlot++;
-                                    }
-
-                                    if (
-                                            !inBlocked && !inBlockedReceiver
-                                            && (whiteListReceiverIsNull || inWhiteListReceiver)
-                                            && (whiteListNull || inWhiteList)
-                                    ) {
-                                        if (
-                                                (inWhiteList || whiteListNull)
-                                                        && (inWhiteListReceiver || whiteListReceiverIsNull)
-                                        ) {
-                                            boolean isSimilar = false;
-                                            //if (
-                                            //        containerGive.getType() != Material.CRAFTER
-                                            //        && containerGive.getType() != Material.FURNACE
-                                            //        && containerGive.getType() != Material.BLAST_FURNACE
-                                            //        && containerGive.getType() != Material.SMOKER
-                                            //) {
-                                                //Bukkit.getLogger().info("inBlocked: " + inBlocked);
-                                                //Bukkit.getLogger().info("inBlockedReceiver: " + inBlockedReceiver);
-                                                //Bukkit.getLogger().info("whiteListReceiverIsNull: " + whiteListReceiverIsNull);
-                                                //Bukkit.getLogger().info("inWhiteListReceiver: " + inWhiteListReceiver);
-                                                //Bukkit.getLogger().info("whiteListNull: " + whiteListNull);
-                                                //Bukkit.getLogger().info("inWhiteList: " + inWhiteList);
-                                                //Bukkit.getLogger().info("1");
-                                                for (ItemStack itemStackGive : containerGive.getInventory()) {
-                                                    if (itemStackGive != null) {
-                                                        if (itemStackGive.isSimilar(itemStackTake)) {
-                                                            int itemStackGiveAmount = itemStackGive.getAmount();
-                                                            int itemStackTakeAmount = itemStackTake.getAmount();
-                                                            int itemStackRemainderAmount = 0;
-                                                            if (itemStackGive.getMaxStackSize() >= itemStackTakeAmount + itemStackGiveAmount) {
-                                                                itemStackGive.setAmount(itemStackGiveAmount + itemStackTakeAmount);
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            } else {
-                                                                itemStackRemainderAmount = (itemStackGive.getMaxStackSize() - itemStackTakeAmount - itemStackGiveAmount) * -1;
-                                                                itemStackGive.setAmount(itemStackGive.getMaxStackSize());
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            }
-                                                            if (itemStackGive.getMaxStackSize() == itemStackGive.getAmount()) {
-                                                                isSimilar = false;
-                                                            } else {
-                                                                isSimilar = true;
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            //}
-                                            if (!isSimilar) {
-                                                boolean isNull = false;
-                                                if (
-                                                        (
-                                                                (inWhiteListReceiver && inWhiteList)
-                                                                || (inWhiteListReceiver && whiteListNull)
-                                                                || (whiteListReceiverIsNull && inWhiteList)
-                                                        )
-                                                                && (
-                                                                containerGive.getType() == Material.CRAFTER
-                                                                || containerGive.getType() == Material.FURNACE
-                                                                || containerGive.getType() == Material.BLAST_FURNACE
-                                                                || containerGive.getType() == Material.SMOKER
-                                                        )
-                                                                //&& whiteListSlot < containerGive.getInventory().getSize()
-                                                ) {
-                                                    //if (whiteListReceiverIsNull) {
-                                                        if (containerGive.getInventory().getItem(whiteListReceiverSlot) == null) {
-                                                            ////Bukkit.getLogger().info("2");
-                                                            isNull = true;
-                                                    //    }
-                                                    } else {
-                                                        if (
-                                                                containerGive.getInventory().getItem(whiteListReceiverSlot) == null
-                                                                && containerGive.getType() == Material.BREWING_STAND
-                                                                && containerGive.getType() == Material.CRAFTER
-                                                                && containerGive.getType() == Material.FURNACE
-                                                                && containerGive.getType() == Material.BLAST_FURNACE
-                                                                && containerGive.getType() == Material.SMOKER
-                                                        ) {
-                                                            ////Bukkit.getLogger().info("3");
-                                                            isNull = true;
-                                                        }/* else {
-                                                            for (ItemStack itemStack: inventoryWhiteListReceiver){
-                                                                if(itemStack != null) {
-                                                                    if (itemStack.isSimilar(itemStackTake)) {
-                                                                        isNull = true;
-                                                                        break;
-                                                                    }
-                                                                }
-                                                            }
-                                                        }*/
-                                                    }
-                                                } else {
-                                                    for (ItemStack itemStackGive : containerGive.getInventory()) {
-                                                        if (itemStackGive == null) {
-                                                            isNull = true;
-                                                            break;
-                                                        }
-                                                    }
-                                                }
-                                                if (isNull) {
-                                                    if (
-                                                            containerGive.getType() != Material.BREWING_STAND
-                                                            && containerGive.getType() != Material.CRAFTER
-                                                            && containerGive.getType() != Material.FURNACE
-                                                            && containerGive.getType() != Material.BLAST_FURNACE
-                                                            && containerGive.getType() != Material.SMOKER
-
-                                                    ) {
-                                                        //Bukkit.getLogger().info("4");
-                                                        containerGive.getInventory().addItem(itemStackTake);
-                                                        itemStackTake.setAmount(0);
-                                                    } else if (containerGive.getType() == Material.BREWING_STAND) {
-                                                        if (
-                                                                itemStackTake.getType() == Material.POTION
-                                                                        && (
-                                                                        containerGive.getInventory().getItem(0) == null
-                                                                                || containerGive.getInventory().getItem(1) == null
-                                                                                || containerGive.getInventory().getItem(2) == null
-                                                                )
-                                                        ) {
-                                                            containerGive.getInventory().addItem(itemStackTake);
-                                                            itemStackTake.setAmount(0);
-                                                        } else if (itemStackTake.getType() == Material.BLAZE_POWDER && containerGive.getInventory().getItem(4) == null) {
-                                                            containerGive.getInventory().setItem(4, itemStackTake);
-                                                            itemStackTake.setAmount(0);
-                                                        } else if (
-                                                                containerGive.getInventory().getItem(3) == null
-                                                                        && itemStackTake.getType() != Material.POTION
-                                                                && (inWhiteListReceiver || whiteListReceiverIsNull) && (inWhiteList || whiteListNull) && !inBlockedReceiver && !inBlocked
-                                                        ) {
-                                                            boolean slotInWhiteList = false;
-                                                            boolean slotInWhiteListReceiver = false;
-                                                            if(!whiteListNull){
-                                                                if(whiteListSlot == 3){
-                                                                    slotInWhiteList = true;
-                                                                }
-                                                            }
-                                                            if(!whiteListReceiverIsNull){
-                                                                if(whiteListReceiverSlot == 3){
-                                                                    slotInWhiteListReceiver = true;
-                                                                }
-                                                            }
-                                                            if(
-                                                                    (slotInWhiteList || whiteListNull)
-                                                                    && (slotInWhiteListReceiver || whiteListReceiverIsNull)
-                                                            ) {
-                                                                containerGive.getInventory().setItem(3, itemStackTake);
-                                                                itemStackTake.setAmount(0);
-                                                            }else if(!whiteListNull && !whiteListReceiverIsNull){
-                                                                containerGive.getInventory().setItem(3, itemStackTake);
-                                                                itemStackTake.setAmount(0);
-                                                            }
-                                                        }
-                                                    }/* else if (
-                                                            (whiteListSlot < containerGive.getInventory().getSize() && whiteListReceiverIsNull)
-                                                    ) {
-                                                        int itemStackRemainderAmount = 0;
-                                                        ItemStack itemStackGive = containerGive.getInventory().getItem(whiteListSlot);
-                                                        if(containerGive.getInventory().getItem(whiteListSlot) == null) {
-                                                            containerGive.getInventory().setItem(whiteListSlot, itemStackTake);
-                                                            itemStackTake.setAmount(0);
-                                                        }else if(containerGive.getInventory().getItem(whiteListSlot).isSimilar(itemStackTake)){
-                                                            if (itemStackGive.getMaxStackSize() >= itemStackTake.getAmount() + itemStackGive.getAmount()) {
-                                                                itemStackGive.setAmount(itemStackGive.getAmount() + itemStackTake.getAmount());
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            } else if (itemStackGive.getMaxStackSize() < itemStackTake.getAmount() + itemStackGive.getAmount()){
-                                                                itemStackRemainderAmount = (itemStackGive.getMaxStackSize() - itemStackTake.getAmount() - itemStackGive.getAmount()) * -1;
-                                                                itemStackGive.setAmount(itemStackGive.getMaxStackSize());
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            }
-                                                        }
-                                                    }*/ else if (
-                                                            (whiteListReceiverSlot < containerGive.getInventory().getSize())
-                                                    ) {
-                                                        int itemStackRemainderAmount = 0;
-                                                        ItemStack itemStackGive = containerGive.getInventory().getItem(whiteListReceiverSlot);
-                                                        if(containerGive.getInventory().getItem(whiteListReceiverSlot) == null) {
-                                                            containerGive.getInventory().setItem(whiteListReceiverSlot, itemStackTake);
-                                                            itemStackTake.setAmount(0);
-                                                        }else if(containerGive.getInventory().getItem(whiteListReceiverSlot).isSimilar(itemStackTake)){
-                                                            if (itemStackGive.getMaxStackSize() >= itemStackTake.getAmount() + itemStackGive.getAmount()) {
-                                                                itemStackGive.setAmount(itemStackGive.getAmount() + itemStackTake.getAmount());
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            } else if (itemStackGive.getMaxStackSize() < itemStackTake.getAmount() + itemStackGive.getAmount()){
-                                                                itemStackRemainderAmount = (itemStackGive.getMaxStackSize() - itemStackTake.getAmount() - itemStackGive.getAmount()) * -1;
-                                                                itemStackGive.setAmount(itemStackGive.getMaxStackSize());
-                                                                itemStackTake.setAmount(itemStackRemainderAmount);
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    } else if (inBlockedReceiver && !inBlocked && (inWhiteList || whiteListNull) && (whiteListReceiverIsNull || inWhiteListReceiver)) {
-                                        int slot = 0;
-                                        for (ItemStack itemStackGive : containerGive.getInventory()) {
-                                            int itemStackRemainderAmount = 0;
-                                            boolean isNull = false;
-                                            boolean isSimilar = false;
-                                            int nullSlotFirst = -1;
-                                            int i = 0;
-                                            for (ItemStack itemStack : containerGive.getInventory()) {
-                                                if (itemStack == null) {
-                                                    isNull = true;
-                                                    if(nullSlotFirst == -1 && !blockReceiveSlots.contains(i)) {
-                                                        nullSlotFirst = i;
-                                                    }
-                                                }else if (itemStack.isSimilar(itemStackGive)) {
-                                                    isSimilar = true;
-                                                }
-                                                i++;
-                                            }
-                                            if (!blockReceiveSlots.contains(slot)) {
-                                                if (
-                                                        containerGive.getType() != Material.BREWING_STAND
-                                                        && containerGive.getType() != Material.CRAFTER
-                                                        && containerGive.getType() != Material.FURNACE
-                                                        && containerGive.getType() != Material.BLAST_FURNACE
-                                                        && containerGive.getType() != Material.SMOKER
-                                                )
-                                                {
-                                                    //Bukkit.getLogger().info("5");
-                                                    if(isSimilar){
-                                                        if (itemStackGive.getMaxStackSize() >= itemStackTake.getAmount() + itemStackGive.getAmount()) {
-                                                            itemStackGive.setAmount(itemStackGive.getAmount() + itemStackTake.getAmount());
-                                                            itemStackTake.setAmount(itemStackRemainderAmount);
-                                                        } else if (itemStackGive.getMaxStackSize() < itemStackTake.getAmount() + itemStackGive.getAmount()){
-                                                            itemStackRemainderAmount = (itemStackGive.getMaxStackSize() - itemStackTake.getAmount() - itemStackGive.getAmount()) * -1;
-                                                            itemStackGive.setAmount(itemStackGive.getMaxStackSize());
-                                                            itemStackTake.setAmount(itemStackRemainderAmount);
-                                                        }
-                                                    }else if(isNull){
-                                                        containerGive.getInventory().setItem(nullSlotFirst, itemStackTake);
-                                                        itemStackTake.setAmount(0);
-                                                    }
-                                                }else if (
-                                                        itemStackGive == null
-                                                        && slot < containerGive.getInventory().getSize()
-                                                ) {
-                                                    containerGive.getInventory().setItem(slot, itemStackTake);
-                                                    itemStackTake.setAmount(0);
-                                                } else if (
-                                                        itemStackGive.getMaxStackSize() >= itemStackTake.getAmount() + itemStackGive.getAmount()
-                                                                && slot < containerGive.getInventory().getSize()
-                                                        && itemStackGive.isSimilar(itemStackTake)
-                                                ) {
-                                                    itemStackGive.setAmount(itemStackGive.getAmount() + itemStackTake.getAmount());
-                                                    itemStackTake.setAmount(itemStackRemainderAmount);
-                                                } else if(
-                                                        itemStackGive.getMaxStackSize() < itemStackTake.getAmount() + itemStackGive.getAmount()
-                                                                && slot < containerGive.getInventory().getSize()
-                                                                && itemStackGive.isSimilar(itemStackTake)
-                                                ){
-                                                    itemStackRemainderAmount = (itemStackGive.getMaxStackSize() - itemStackTake.getAmount() - itemStackGive.getAmount()) * -1;
-                                                    itemStackGive.setAmount(itemStackGive.getMaxStackSize());
-                                                    itemStackTake.setAmount(itemStackRemainderAmount);
-                                                }
-                                            }
-                                            slot++;
-                                        }
-                                    }
+        }else{
+            for (Pipe activePipe : magicpipes.getPlugin().getPipes()) {
+                if (checkPipe(this, activePipe)) {
+                    switch (type) {
+                        case 0:
+                            if (activePipe.getType() == 1) {
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
                                 }
-                                itemStackSlot++;
-                            }
-                        }
-                        blockStateGiveIterator++;
-                    }
-                    //КОНЕЦ ОШИБКИ
-
-                }
-
-
-                inventoryList.clear();
-                inventoryListTake.clear();
-                cashPipe.clear();
-                whiteListReceiver.clear();
-
-                switch (type) {
-                    case 0:
-                        break;
-                    case 1:
-                        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
-                            boolean pipeFind = true;
-                            List<Pipe> pipes = new ArrayList<>();
-                            pipes.add(this);
-                            while (pipeFind) {
-                                    List<Pipe> newPipes = checkPipe(pipes);
-                                pipes.clear();
-                                pipes.addAll(newPipes);
-                                newPipes.clear();
-                                if (pipes.isEmpty()) {
-                                    pipeFind = false;
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                            } else if (activePipe.getType() == 2) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
+                                }
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
+                                }
+                            } else if (activePipe.getType() == 0) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
+                                }
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
+                                }
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
                                 }
                             }
-                        });
-
-                        Block block = new Location(world, x, y, z).getBlock();
-                        for (BlockFace face : BlockFace.values()) {
-                            if (face == BlockFace.UP || face == BlockFace.DOWN ||
-                                    face == BlockFace.NORTH || face == BlockFace.SOUTH ||
-                                    face == BlockFace.EAST || face == BlockFace.WEST) {
-                                Block blockFace = block.getRelative(face);
-                                if (blockFace.getState() instanceof Container) {
-                                    BlockState blockState = blockFace.getState();
-                                    this.inventoryListTake.add(blockState);
-                                }
-                            }
-                        }
-
-
-                        break;
-                    }
-                }
-
-        }, 20L, 20L);
-    }
-
-    private List<Pipe> checkPipe(List<Pipe> oldPipes){
-        List<Pipe> newPipe = new ArrayList<>();
-
-        cashPipe.addAll(oldPipes);
-
-        for (Pipe oldPipe: oldPipes){
-            Block block = new Location(
-                    oldPipe.getWorld(),
-                    oldPipe.getX(),
-                    oldPipe.getY(),
-                    oldPipe.getZ()
-            ).getBlock();
-
-            for (BlockFace face : BlockFace.values()) {
-                if (face == BlockFace.UP || face == BlockFace.DOWN ||
-                        face == BlockFace.NORTH || face == BlockFace.SOUTH ||
-                        face == BlockFace.EAST || face == BlockFace.WEST) {
-                    Block blockFace = block.getRelative(face);
-
-                    for (Pipe pipe : magicpipes.getPlugin().getPipes()) {
-                        if (
-                                pipe.getWorld() == blockFace.getWorld()
-                                        && pipe.getX() == blockFace.getX()
-                                        && pipe.getY() == blockFace.getY()
-                                        && pipe.getZ() == blockFace.getZ()
-                                        && (
-                                        pipe.getType() == 0
-                                        || pipe.getType() == 1
-                                        || pipe.getType() == 2
-                                )
-                                        && !cashPipe.contains(pipe)
-                        ) {
-                            newPipe.add(pipe);
                             break;
-                        }
-                    }
-                    if(materialList.contains(blockFace.getType()) && (
-                            oldPipe.getType() == 2
-                    )){
-                        int i = 0;
-                        boolean blockInCash = false;
-                        for(Block cashBlock: cashContainersBlock){
-                            if(
-                                    cashBlock.equals(blockFace)
-                            ){
-                                this.inventoryList.add(cashBlockStateContainers.get(i));
-                                if (oldPipe.getType() == 2) {
-                                    this.whiteListReceiver.add(oldPipe.getInventory());
+                        case 1:
+                            if (activePipe.getType() == 2 || activePipe.getType() == 0) {
+                                if (!activePipe.getParentPipes().contains(this)) {
+                                    activePipe.getParentPipes().add(this);
                                 }
-                                blockInCash = true;
-                                break;
-                            }
-                            i++;
-                        }
-
-                        if(!blockInCash) {
-                            Bukkit.getServer().getScheduler().runTask(magicpipes.getPlugin(), () -> {
-                                BlockState blockState = blockFace.getState();
-                                this.inventoryList.add(blockState);
-                                cashContainersBlock.add(blockFace);
-                                cashBlockStateContainers.add(blockState);
-                                if (oldPipe.getType() == 2) {
-                                    this.whiteListReceiver.add(oldPipe.getInventory());
+                                if (!pipes.contains(activePipe)) {
+                                    pipes.add(activePipe);
                                 }
-                            });
-                        }
-                    }
-                    /*Bukkit.getServer().getScheduler().runTask(Magic_pipes.getPlugin(), () -> {
-                        if (blockFace.getState() instanceof Container
-                                && (
-                                oldPipe.getType() == 0
-                                        || oldPipe.getType() == 2
-                        )
-                        ) {
-                            BlockState blockState = blockFace.getState();
-                            this.inventoryList.add(blockState);
-                            if (oldPipe.getType() == 2) {
-                                this.whiteListReceiver.add(oldPipe.getInventory());
                             }
-                        }
-                    });
-
-                     */
+                            break;
+                        case 2:
+                            if (activePipe.getType() == 1 || activePipe.getType() == 0) {
+                                if (!parentPipes.contains(activePipe)) {
+                                    parentPipes.add(activePipe);
+                                }
+                                if (!activePipe.getPipes().contains(this)) {
+                                    activePipe.getPipes().add(this);
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+        for(PipeContainer pipeContainer: magicpipes.getPlugin().getActivePipeContainers()){
+            if(checkPipeContainer(this, pipeContainer)){
+                if(this.getType() == 2) {
+                    if(!pipeContainers.contains(pipeContainer)) {
+                        pipeContainers.add(pipeContainer);
+                    }
+                    if(!pipeContainer.getPipeParents().contains(this)) {
+                        pipeContainer.getPipeParents().add(this);
+                    }
+                }else if(this.getType() == 1){
+                    if(!takePipeContainers.contains(pipeContainer)) {
+                        takePipeContainers.add(pipeContainer);
+                    }
+                    if(pipeContainer.getPipeParents().contains(this)) {
+                        pipeContainer.getPipeParents().add(this);
+                    }
 
                 }
             }
         }
-
-        return newPipe;
     }
 
-    /**
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void PipeBlockBreak(BlockBreakEvent event){
-        Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
-            if(
-                    event.getBlock().getX() == x
-                    && event.getBlock().getY() == y
-                    && event.getBlock().getZ() == z
-                    && event.getBlock().getWorld() == world
-            ){
-                remove();
+    private boolean checkPipeContainer(Pipe pipe, PipeContainer pipeContainer){
+        if(
+                (
+                        pipe.getWorld() == pipeContainer.getWorld()
+                                && pipe.getX() == pipeContainer.getX() + 1
+                                && pipe.getY() == pipeContainer.getY()
+                                && pipe.getZ() == pipeContainer.getZ()
+                )
+                        ||
+                        (
+                                pipe.getWorld() == pipeContainer.getWorld()
+                                        && pipe.getX() == pipeContainer.getX()
+                                        && pipe.getY() == pipeContainer.getY() + 1
+                                        && pipe.getZ() == pipeContainer.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == pipeContainer.getWorld()
+                                        && pipe.getX() == pipeContainer.getX()
+                                        && pipe.getY() == pipeContainer.getY()
+                                        && pipe.getZ() == pipeContainer.getZ() + 1
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == pipeContainer.getWorld()
+                                        && pipe.getX() == pipeContainer.getX() - 1
+                                        && pipe.getY() == pipeContainer.getY()
+                                        && pipe.getZ() == pipeContainer.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == pipeContainer.getWorld()
+                                        && pipe.getX() == pipeContainer.getX()
+                                        && pipe.getY() == pipeContainer.getY() - 1
+                                        && pipe.getZ() == pipeContainer.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == pipeContainer.getWorld()
+                                        && pipe.getX() == pipeContainer.getX()
+                                        && pipe.getY() == pipeContainer.getY()
+                                        && pipe.getZ() == pipeContainer.getZ() - 1
+                        )
+        ){
+            return true;
+        }
+        return false;
+    }
+
+    private boolean checkPipe(Pipe pipe, Pipe activePipe){
+        if(
+                (
+                        pipe.getWorld() == activePipe.getWorld()
+                                && pipe.getX() == activePipe.getX() + 1
+                                && pipe.getY() == activePipe.getY()
+                                && pipe.getZ() == activePipe.getZ()
+                )
+                        ||
+                        (
+                                pipe.getWorld() == activePipe.getWorld()
+                                        && pipe.getX() == activePipe.getX()
+                                        && pipe.getY() == activePipe.getY() + 1
+                                        && pipe.getZ() == activePipe.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == activePipe.getWorld()
+                                        && pipe.getX() == activePipe.getX()
+                                        && pipe.getY() == activePipe.getY()
+                                        && pipe.getZ() == activePipe.getZ() + 1
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == activePipe.getWorld()
+                                        && pipe.getX() == activePipe.getX() - 1
+                                        && pipe.getY() == activePipe.getY()
+                                        && pipe.getZ() == activePipe.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == activePipe.getWorld()
+                                        && pipe.getX() == activePipe.getX()
+                                        && pipe.getY() == activePipe.getY() - 1
+                                        && pipe.getZ() == activePipe.getZ()
+                        )
+                        ||
+                        (
+                                pipe.getWorld() == activePipe.getWorld()
+                                        && pipe.getX() == activePipe.getX()
+                                        && pipe.getY() == activePipe.getY()
+                                        && pipe.getZ() == activePipe.getZ() - 1
+                        )
+        ){
+            return true;
+        }
+        return false;
+    }
+
+    private List<PipeContainer> checkContainersPlaced(Block block){
+        int x = block.getX();
+        int y = block.getY();
+        int z = block.getZ();
+        World world = block.getWorld();
+        List<PipeContainer> pipeContainersCheck = new ArrayList<>();
+        Block block1 = world.getBlockAt(x + 1, y, z);
+        if(
+                block1.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block1,
+                    container
+            );
+
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+            magicpipes.getPlugin().getPipeContainers().add(pipeContainer);
+        }
+        Block block2 = world.getBlockAt(x - 1, y, z);
+        if(
+                block2.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block2,
+                    container
+            );
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+        }
+
+        Block block3 = world.getBlockAt(x, y + 1, z);
+        if(
+                block3.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block3,
+                    container
+            );
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+        }
+
+        Block block4 = world.getBlockAt(x, y - 1, z);
+        if(
+                block4.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block4,
+                    container
+            );
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+        }
+
+        Block block5 = world.getBlockAt(x, y, z + 1);
+        if(
+                block5.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block5,
+                    container
+            );
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+        }
+
+        Block block6 = world.getBlockAt(x, y, z - 1);
+        if(
+                block6.getState() instanceof Container container
+        ){
+            PipeContainer pipeContainer = new PipeContainer(
+                    block6,
+                    container
+            );
+            if(magicpipes.getPlugin().isStartPipes()) {
+                pipeContainer.setIsActive(true);
+            }else{
+                pipeContainer.setIsActive(false);
+            }
+            pipeContainersCheck.add(pipeContainer);
+            addPipeContainerInList(pipeContainer);
+        }
+
+
+        if(x == 3974 && y == 63 && z == 2362){
+        }
+        return pipeContainersCheck;
+    }
+
+    private void addPipeContainerInList(PipeContainer pipeContainer){
+        magicpipes.getPlugin().getPipeContainers().add(pipeContainer);
+        if(magicpipes.getPlugin().isStartPipes()) {
+            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+        }
+    }
+
+    public List<PipeContainer> getTakePipeContainers() {
+        return takePipeContainers;
+    }
+
+    public void doTask(){
+        boolean inDistance = false;
+        for(Player player: Bukkit.getServer().getOnlinePlayers()){
+            if(player.getWorld() == world) {
+                if (calculateDistance(
+                        player.getLocation().getBlockX(), player.getLocation().getBlockZ()
+                        , x, z
+                ) < 100) {
+                    inDistance = true;
+                    break;
+                }
+            }
+        }
+        if(type != 1 || !isActive || takePipeContainers.isEmpty() || !inDistance){
+            return;
+        }
+
+        checkTakeInventoriesAsync(result -> {
+            if(result){
+                return;
+            }
+            for(Pipe pipe: pipes){
+                if(pipe.getIsActive()){
+                    checkContainers(pipe);
+                }
             }
         });
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onBlockPhysics(BlockPhysicsEvent event) {
-        Block block = event.getSourceBlock();
-        if(
-                (
-                        x == block.getX()
-                        && y == block.getY()
-                        && z == block.getZ()
-                        && world == block.getWorld()
-                    )
-                || (
-                        x == event.getBlock().getX()
-                        && y ==  event.getBlock().getY()
-                        && z ==  event.getBlock().getZ()
-                        && world == event.getBlock().getWorld()
-                    )
-        ) {
-            if (
-                    event.getBlock().getType() == Material.WATER
-                            && event.getSourceBlock().getType() == Material.PLAYER_HEAD
-                            && x == block.getX()
-                            && y == block.getY()
-                            && z == block.getZ()
-                            && world == block.getWorld()
-                            && !isRemove
-            ) {
-                event.setCancelled(true);
-                block.setType(Material.AIR);
-                //block.getWorld().dropItemNaturally(block.getLocation(), pipeItemStackBlock);
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), this::remove);
-            } else if (
-                    event.getSourceBlock().getType() == Material.WATER
-                            && event.getBlock().getType() == Material.PLAYER_HEAD
-                            && x == event.getBlock().getX()
-                            && y == event.getBlock().getY()
-                            && z == event.getBlock().getZ()
-                            && world == event.getBlock().getWorld()
-                            && !isRemove
-            ) {
-                event.setCancelled(true);
-                event.getBlock().setType(Material.AIR);
-                event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), pipeItemStackBlock);
+    private double calculateDistance(double x1, double z1, double x2, double z2) {
+        double deltaX = x2 - x1;
+        double deltaZ = z2 - z1;
+        return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+    }
 
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), this::remove);
+    private void checkContainers(Pipe pipe){
+        checkTakeInventoriesAsync(result -> {
+            if(result){
+                return;
+            }
+            if(!pipe.getPipeContainers().isEmpty()){
+                giveItems(pipe);
+            }
+            for(Pipe pipeChildren: pipe.getPipes()){
+                if(pipeChildren != pipe){
+                    checkContainers(pipeChildren);
+                }
+            }
+        });
+    }
+
+    private void checkTakeInventoriesAsync(Consumer<Boolean> callback){
+        Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+            for(PipeContainer pipeContainer: takePipeContainers){
+                if(!pipeContainer.getContainer().getInventory().isEmpty()){
+                    callback.accept(false);
+                    return;
+                }
+            }
+            callback.accept(true);
+        });
+    }
+
+
+
+    private void giveItems(Pipe pipe){
+        for(PipeContainer takePipeContainer: takePipeContainers){
+            checkOneTakeInventoriesAsync(result -> {
+                if(result){
+                    //тут будет основной код
+                    takeInventoryTasks(pipe, takePipeContainer);
+                }
+            }, takePipeContainer);
+        }
+    }
+
+    private void takeInventoryTasks(Pipe pipe, PipeContainer takePipeContainer){
+        Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+            if(takePipeContainer.getContainer().getInventory().getSize() < 27){
+                takeInventoryToolTasks(pipe, takePipeContainer);
+            }else{
+                takeInventoryChestTasks(pipe, takePipeContainer);
+            }
+        });
+    }
+
+    private void takeInventoryToolTasks(Pipe pipe, PipeContainer takePipeContainer){
+        int takeInventoryCount = 0;
+        Inventory takeInventory = takePipeContainer.getContainer().getInventory();
+        for(ItemStack takeItem: takeInventory.getContents()){
+            if(inventory.isEmpty()){
+                //идём дальше
+                giveInventoriesCheck(
+                        pipe,
+                        takePipeContainer,
+                        takeInventory,
+                        takeInventoryCount,
+                        takeItem
+                );
+            }else{
+                ItemStack itemWhiteList = inventory.getItem(takeInventoryCount);
+                if(itemWhiteList == null){
+                    //идём дальше
+                    giveInventoriesCheck(
+                            pipe,
+                            takePipeContainer,
+                            takeInventory,
+                            takeInventoryCount,
+                            takeItem
+                    );
+                }else{
+                    if(itemWhiteList.isSimilar(takeItem)){
+                        //идём дальше
+                        giveInventoriesCheck(
+                                pipe,
+                                takePipeContainer,
+                                takeInventory,
+                                takeInventoryCount,
+                                takeItem
+                        );
+                    }
+                }
+            }
+            takeInventoryCount++;
+        }
+    }
+
+    private void takeInventoryChestTasks(Pipe pipe, PipeContainer takePipeContainer){
+        int takeInventoryCount = 0;
+        Inventory takeInventory = takePipeContainer.getContainer().getInventory();
+        for(ItemStack takeItem: takeInventory.getContents()){
+            if(inventory.isEmpty()){
+                //идём дальше
+                giveInventoriesCheck(
+                        pipe,
+                        takePipeContainer,
+                        takeInventory,
+                        takeInventoryCount,
+                        takeItem
+                );
+            }else{
+                ItemStack itemWhiteList = inventory.getItem(takeInventoryCount);
+                boolean isSimilar = false;
+                for(ItemStack itemWhiteListAll: inventory.getContents()){
+                    if(itemWhiteListAll != null){
+                        if(itemWhiteListAll.isSimilar(takeItem)){
+                            isSimilar = true;
+                            break;
+                        }
+                    }
+                }
+                if(itemWhiteList != null && isSimilar){
+                    if(itemWhiteList.getType() != Material.BARRIER){
+                        //идём дальше
+                        giveInventoriesCheck(
+                                pipe,
+                                takePipeContainer,
+                                takeInventory,
+                                takeInventoryCount,
+                                takeItem
+                                );
+                    }
+                }else if(isSimilar){
+                    //идём дальше
+                    giveInventoriesCheck(
+                            pipe,
+                            takePipeContainer,
+                            takeInventory,
+                            takeInventoryCount,
+                            takeItem
+                    );
+                }
+            }
+            takeInventoryCount++;
+        }
+    }
+
+    //чекаем получателей
+    private void giveInventoriesCheck(
+            Pipe pipe,
+            PipeContainer takePipeContainer,
+            Inventory takeInventory,
+            int takeInventoryCount,
+            ItemStack takeItem
+    ){
+        for(PipeContainer givePipeContainer: pipe.getPipeContainers()){
+            if(takeItem != null && givePipeContainer.isActive) {
+                Inventory giveInventory = givePipeContainer.getContainer().getInventory();
+                if (giveInventory.getSize() < 27) {
+                    giveInventoryCheckTool(
+                            pipe,
+                            takePipeContainer,
+                            takeInventory,
+                            takeInventoryCount,
+                            givePipeContainer,
+                            giveInventory,
+                            takeItem
+                    );
+                } else {
+                    giveInventoryCheckChest(
+                            pipe,
+                            takePipeContainer,
+                            takeInventory,
+                            takeInventoryCount,
+                            givePipeContainer,
+                            giveInventory,
+                            takeItem
+                    );
+                }
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onItemDrop(BlockDropItemEvent event){
-        Block block = event.getBlock();
-            if(
-                    world == block.getWorld()
-                    && x == block.getX()
-                    && y == block.getY()
-                    && z == block.getZ()
-                    && !event.getItems().isEmpty()
-                    && !isRemove
-            ){
-                //event.getPlayer().getInventory().addItem(pipeItemStackBlock);
-                Item item = event.getItems().getFirst();
-                item.setItemStack(pipeItemStackBlock);
-                event.getItems().set(0, item);
-                //Item item = event.getItems().getFirst();
-                //item.setItemStack(pipeItemStackBlock);
-                //event.getItems().set(0, item);
 
+    //чекаем вайт листы инструмента получателя
+    private void giveInventoryCheckTool(
+            Pipe pipe,
+            PipeContainer takePipeContainer,
+            Inventory takeInventory,
+            int takeInventoryCount,
+            PipeContainer givePipeContainer,
+            Inventory giveInventory,
+            ItemStack takeItem
+    ){
+        Inventory whiteList = pipe.getInventory();
+        if(whiteList.isEmpty()){
+            //код дальше
+            List<Integer> trueWhiteListSlots = new ArrayList<>();
+            trueWhiteListSlots.add(-1);
+            preCheckTransportItem(
+                    pipe,
+                    takePipeContainer,
+                    takeInventory,
+                    takeInventoryCount,
+                    givePipeContainer,
+                    giveInventory,
+                    takeItem,
+                    trueWhiteListSlots
+            );
+        }else{
+            List<Integer> trueWhiteListSlots = new ArrayList<>();
+            int giveInventorySlot = 0;
+            for(ItemStack whiteListItemStack: whiteList.getContents()){
+                if(
+                        takeItem.isSimilar(whiteListItemStack)
+                ){
+                    trueWhiteListSlots.add(giveInventorySlot);
+                }
+                giveInventorySlot++;
             }
+            if(!trueWhiteListSlots.isEmpty()){
+                //код дальше
+                preCheckTransportItem(
+                        pipe,
+                        takePipeContainer,
+                        takeInventory,
+                        takeInventoryCount,
+                        givePipeContainer,
+                        giveInventory,
+                        takeItem,
+                        trueWhiteListSlots
+                );
+            }
+        }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPistonExtend(BlockPistonExtendEvent event) {
-        for(Block block: event.getBlocks()){
-            if(
-                    block.getWorld() == world
-                    && block.getX() == x
-                    && block.getY() == y
-                    && block.getZ() == z
-                    && !isRemove
-            ){
-                event.setCancelled(true);
-                block.setType(Material.AIR);
-                block.getWorld().dropItemNaturally(block.getLocation(), pipeItemStackBlock);
-
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), this::remove);
-                break;
+    //чекаем вайт листы сундука получателя
+    private void giveInventoryCheckChest(
+            Pipe pipe,
+            PipeContainer takePipeContainer,
+            Inventory takeInventory,
+            int takeInventoryCount,
+            PipeContainer givePipeContainer,
+            Inventory giveInventory,
+            ItemStack takeItem
+    ){
+        Inventory whiteList = pipe.getInventory();
+        if(whiteList.isEmpty()){
+            //код дальше
+            List<Integer> trueWhiteListSlots = new ArrayList<>();
+            trueWhiteListSlots.add(-1);
+            preCheckTransportItem(
+                    pipe,
+                    takePipeContainer,
+                    takeInventory,
+                    takeInventoryCount,
+                    givePipeContainer,
+                    giveInventory,
+                    takeItem,
+                    trueWhiteListSlots
+            );
+        }else{
+            List<Integer> trueWhiteListSlots = new ArrayList<>();
+            int giveInventorySlot = 0;
+            boolean isSimilar = false;
+            for(ItemStack itemWhiteList: pipe.getInventory().getContents()){
+                if(itemWhiteList != null || itemWhiteList.getType() != Material.BARRIER){
+                    trueWhiteListSlots.add(giveInventorySlot);
+                }
+                if(takeItem.isSimilar(itemWhiteList)){
+                    isSimilar = true;
+                }
+                giveInventorySlot++;
+            }
+            if(isSimilar){
+                //код дальше
+                preCheckTransportItem(
+                        pipe,
+                        takePipeContainer,
+                        takeInventory,
+                        takeInventoryCount,
+                        givePipeContainer,
+                        giveInventory,
+                        takeItem,
+                        trueWhiteListSlots
+                );
             }
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPistonRetract(BlockPistonRetractEvent event) {
-        for (Block block: event.getBlocks()){
-            if(
-                    block.getWorld() == world
-                    && block.getX() == x
-                    && block.getY() == y
-                    && block.getZ() == z
-                    && !isRemove
-            ){
-                event.setCancelled(true);
-                block.setType(Material.AIR);
-                block.getWorld().dropItemNaturally(block.getLocation(), pipeItemStackBlock);
+    //последние проверки перед перемещением
+    private void preCheckTransportItem(
+            Pipe pipe,
+            PipeContainer takePipeContainer,
+            Inventory takeInventory,
+            int takeInventoryCount,
+            PipeContainer givePipeContainer,
+            Inventory giveInventory,
+            ItemStack takeItem,
+            List<Integer> trueWhiteListSlots
+    ){
+        if(trueWhiteListSlots.isEmpty()){
+            return;
+        }
 
-                Bukkit.getServer().getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), this::remove);
-                break;
+        if(giveInventory.getSize() < 27){
+            if(trueWhiteListSlots.getFirst() == -1){
+                int slot = 0;
+                for(ItemStack giveItem: giveInventory.getContents()){
+                    if(giveItem == null){
+                        ItemStack newItemCopy = takeItem.clone();
+                        takeItem.setAmount(0);
+                        giveInventory.setItem(slot, newItemCopy);
+                        return;
+                    }else if(takeItem.isSimilar(giveItem) && giveItem.getAmount() < giveItem.getMaxStackSize()){
+                        int maxAddAmount = giveItem.getMaxStackSize() - giveItem.getAmount();
+                        int takeAmount = takeItem.getAmount();
+                        if(maxAddAmount <= takeAmount) {
+                            int newTakeAmount = takeAmount - maxAddAmount;
+                            takeItem.setAmount(newTakeAmount);
+                            giveItem.setAmount(giveItem.getMaxStackSize());
+                            if (newTakeAmount <= 0) {
+                                return;
+                            }
+                        }else{
+                            takeItem.setAmount(0);
+                            int giveAmount = giveItem.getAmount();
+                            giveItem.setAmount(giveAmount + takeAmount);
+                            return;
+                        }
+                    }
+                    slot ++;
+                }
+            }else {
+                for (int slot : trueWhiteListSlots) {
+                    if (slot < giveInventory.getSize()) {
+                        ItemStack giveItem = giveInventory.getItem(slot);
+                        if(giveItem == null){
+                            ItemStack newItem = takeItem.clone();
+                            takeItem.setAmount(0);
+                            giveInventory.setItem(slot, newItem);
+                            return;
+                        }else if(giveItem.isSimilar(takeItem) && giveItem.getAmount() < giveItem.getMaxStackSize()){
+                            int maxAddAmount = giveItem.getMaxStackSize() - giveItem.getAmount();
+                            int takeAmount = takeItem.getAmount();
+                            if(maxAddAmount <= takeAmount) {
+                                int newTakeAmount = takeAmount - maxAddAmount;
+                                takeItem.setAmount(newTakeAmount);
+                                giveItem.setAmount(giveItem.getMaxStackSize());
+                                if (newTakeAmount <= 0) {
+                                    return;
+                                }
+                            }else{
+                                takeItem.setAmount(0);
+                                int giveAmount = giveItem.getAmount();
+                                giveItem.setAmount(giveAmount + takeAmount);
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+        }else {
+            if(trueWhiteListSlots.getFirst() == -1){
+                int slot = 0;
+                for(ItemStack giveItem: giveInventory.getContents()){
+                    if(giveItem == null){
+                        ItemStack newItemCopy = takeItem.clone();
+                        takeItem.setAmount(0);
+                        giveInventory.setItem(slot, newItemCopy);
+                        return;
+                    }else if(takeItem.isSimilar(giveItem) && giveItem.getAmount() < giveItem.getMaxStackSize()){
+                        int maxAddAmount = giveItem.getMaxStackSize() - giveItem.getAmount();
+                        int takeAmount = takeItem.getAmount();
+                        if(maxAddAmount <= takeAmount) {
+                            int newTakeAmount = takeAmount - maxAddAmount;
+                            takeItem.setAmount(newTakeAmount);
+                            giveItem.setAmount(giveItem.getMaxStackSize());
+                            if (newTakeAmount <= 0) {
+                                return;
+                            }
+                        }else{
+                            takeItem.setAmount(0);
+                            int giveAmount = giveItem.getAmount();
+                            giveItem.setAmount(giveAmount + takeAmount);
+                            return;
+                        }
+                    }
+                    slot++;
+                }
+            }else{
+                for (int slot : trueWhiteListSlots) {
+                    if (slot < giveInventory.getSize()) {
+                        ItemStack giveItem = giveInventory.getItem(slot);
+                        if(giveItem == null){
+                            ItemStack newItem = takeItem.clone();
+                            takeItem.setAmount(0);
+                            giveInventory.setItem(slot, newItem);
+                            return;
+                        }else if(giveItem.isSimilar(takeItem) && giveItem.getAmount() < giveItem.getMaxStackSize()){
+                            int maxAddAmount = giveItem.getMaxStackSize() - giveItem.getAmount();
+                            int takeAmount = takeItem.getAmount();
+                            if(maxAddAmount <= takeAmount) {
+                                int newTakeAmount = takeAmount - maxAddAmount;
+                                takeItem.setAmount(newTakeAmount);
+                                giveItem.setAmount(giveItem.getMaxStackSize());
+                                if (newTakeAmount <= 0) {
+                                    return;
+                                }
+                            }else{
+                                takeItem.setAmount(0);
+                                int giveAmount = giveItem.getAmount();
+                                giveItem.setAmount(giveAmount + takeAmount);
+                                return;
+                            }
+                        }
+                    }
+                }
             }
         }
     }
-    */
+
+    private void checkOneTakeInventoriesAsync(Consumer<Boolean> callback, PipeContainer takePipeContainer){
+        Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if(!takePipeContainer.getContainer().getInventory().isEmpty()){
+                    callback.accept(true);
+                    return;
+                }
+            callback.accept(false);
+        });
+    }
+
+    public int getChunkX() {
+        return chunkX;
+    }
+
+    public int getChunkZ() {
+        return chunkZ;
+    }
+
+    public void setChunkX(int chunkX) {
+        this.chunkX = chunkX;
+    }
+
+    public void setChunkZ(int chunkZ) {
+        this.chunkZ = chunkZ;
+    }
+
+    public List<Pipe> getParentPipes() {
+        return parentPipes;
+    }
+
+    public void setParentPipes(List<Pipe> parentPipes) {
+        this.parentPipes = parentPipes;
+    }
+
+    public List<Pipe> getPipes() {
+        return pipes;
+    }
+
+    public boolean getIsActive(){
+        return isActive;
+    }
+
+    public void setIsActive(boolean isActive){
+        this.isActive = isActive;
+    }
+
+
+    public List<PipeContainer> getPipeContainers() {
+        return pipeContainers;
+    }
 
     public void remove(){
         Requests.removePipe(this);
         magicpipes.getPlugin().getPipes().remove(this);
-        if(update != null) {
-            update.cancel();
+        magicpipes.getPlugin().getActivePipe().remove(this);
+        for(PipeContainer pipeContainer: pipeContainers){
+            pipeContainer.getPipeParents().remove(this);
+            if(pipeContainer.getPipeParents().isEmpty()){
+                pipeContainer.remove();
+            }
         }
 
         isRemove = true;
     }
-
-    /**
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInventoryClose(InventoryCloseEvent event) throws IOException {
-        if(this.inventory == event.getInventory()){
-            List<String> itemBase64List = new ArrayList<>();
-            int i = 0;
-            List<Integer> slot = new ArrayList<>();
-            for (ItemStack itemStack: event.getInventory().getContents()){
-                if(itemStack != null){
-                    itemBase64List.add(serializeItems(itemStack));
-                    slot.add(i);
-                }
-                i++;
-            }
-            if(!itemBase64List.isEmpty()){
-                Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
-                    Requests.itemsAdd(this, itemBase64List, slot);
-                });
-            }else{
-                Bukkit.getScheduler().runTaskAsynchronously(Magic_pipes.getPlugin(), () -> {
-                    Requests.removeItem(this);
-                });
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInventoryClick(InventoryClickEvent event) throws IOException {
-        if(event.getInventory().getHolder() instanceof Pipe) {
-            if (this.inventory == event.getClickedInventory() && event.getSlot() > -999) {
-                event.setCancelled(true);
-                if (event.getCursor() != null && event.getSlot() > -999 && event.getCursor().getType() != Material.AIR) {
-                    ItemStack cursor = event.getCursor().clone();
-                    cursor.setAmount(1);
-                    event.getInventory().setItem(event.getSlot(), cursor);
-                } else if (event.getClickedInventory().getItem(event.getSlot()) != null && event.getSlot() > -999) {
-                    event.getClickedInventory().getItem(event.getSlot()).setAmount(0);
-                } else if (event.getClickedInventory().getItem(event.getSlot()) == null && event.getSlot() > -999) {
-                    ItemStack itemStack = new ItemStack(Material.BARRIER);
-                    itemStack.setAmount(1);
-                    ItemMeta meta = itemStack.getItemMeta();
-                    meta.setDisplayName("ЗАБЛОКИРОВАНО");
-                    itemStack.setItemMeta(meta);
-                    event.getClickedInventory().setItem(event.getSlot(), itemStack);
-                }
-            } else if (event.isShiftClick() && this.inventory == event.getInventory()) {
-                event.setCancelled(true);
-            }
-        }
-    }
-    */
 
     public static String serializeItems(ItemStack itemStack) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();

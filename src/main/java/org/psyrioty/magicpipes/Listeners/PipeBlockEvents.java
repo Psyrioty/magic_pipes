@@ -8,11 +8,10 @@ import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -24,13 +23,15 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.psyrioty.magicpipes.Database.Requests;
+import org.psyrioty.magicpipes.Objects.PipeContainer;
 import org.psyrioty.magicpipes.magicpipes;
 import org.psyrioty.magicpipes.Objects.Pipe;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class PipeBlockEvents implements Listener {
-    @EventHandler(ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void PipeBlockPlace(BlockPlaceEvent event){
         BlockData blockData = event.getBlock().getBlockData();
         BlockState blockState = event.getBlock().getState();
@@ -74,14 +75,11 @@ public class PipeBlockEvents implements Listener {
 
                         Pipe finalPipe = pipe;
                         Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
-                                    Requests.createPipe(finalPipe);
+                            Requests.createPipe(finalPipe);
                         });
+                        magicpipes.getPlugin().getActivePipe().add(pipe);
                         magicpipes.getPlugin().getPipes().add(pipe);
-
-                        //Skull skull = (Skull) blockState;
-                        //skull.setRotation(BlockFace.UP);
-                        //skull.update(true, false);
-                        break;
+                        return;
                     }
                 }
             }
@@ -89,8 +87,16 @@ public class PipeBlockEvents implements Listener {
     }
 
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+
+
+
+
+    /*@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void blockBreak(BlockBreakEvent event){
+        World world = event.getBlock().getWorld();
+        int x = event.getBlock().getX();
+        int y = event.getBlock().getY();
+        int z = event.getBlock().getZ();
         Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
             List<Pipe> pipeList = magicpipes.getPlugin().getPipes();
 
@@ -99,7 +105,12 @@ public class PipeBlockEvents implements Listener {
                 List<Block> blocks = pipe.getCashContainersBlock();
                 List<BlockState> blockStates = pipe.getCashBlockStateContainers();
                 for(Block block: blocks){
-                    if(block.equals(event.getBlock())){
+                    if(
+                            block.getWorld() == world &&
+                            block.getX() == x &&
+                            block.getY() == y &&
+                            block.getZ() == z
+                    ){
                         blocks.remove(i);
                         blockStates.remove(i);
                         break;
@@ -108,11 +119,11 @@ public class PipeBlockEvents implements Listener {
                 }
             }
         });
-    }
+    }*/
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    /*@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+        //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
             List<Pipe> pipeList = magicpipes.getPlugin().getPipes();
 
             for(Pipe pipe: pipeList){
@@ -129,12 +140,12 @@ public class PipeBlockEvents implements Listener {
                     i++;
                 }
             }
-        });
+        //});
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+        //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
             List<Pipe> pipeList = magicpipes.getPlugin().getPipes();
 
             for(Pipe pipe: pipeList){
@@ -151,15 +162,15 @@ public class PipeBlockEvents implements Listener {
                     i++;
                 }
             }
-        });
-    }
+        //});
+    }*/
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onHeadInteract(PlayerInteractEvent event){
         Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
             if(event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 Block block = event.getClickedBlock();
-                for (Pipe pipe : magicpipes.getPlugin().getPipes()) {
+                for (Pipe pipe : magicpipes.getPlugin().getActivePipe()) {
                     if (
                             block.getWorld() == pipe.getWorld()
                                     && block.getX() == pipe.getX()

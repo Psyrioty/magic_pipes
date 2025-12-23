@@ -14,6 +14,7 @@ import org.bukkit.event.block.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +28,7 @@ import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class PipeOtherEvents implements Listener {
@@ -244,32 +246,50 @@ public class PipeOtherEvents implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    private void onChunkUnload(ChunkUnloadEvent event){
-        Chunk chunkEvent = event.getChunk();
-        int chunkEventX = event.getChunk().getX();
-        int chunkEventZ = event.getChunk().getZ();
-        World chunkWorld = event.getWorld();
-        Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
-            int i = 0;
-            for(Pipe pipe: magicpipes.getPlugin().getPipes()) {
-                List<Block> cashContainersBlock = pipe.getCashContainersBlock();
-                for (Block cashBlock : cashContainersBlock) {
-                    Chunk chunkBlock = cashBlock.getChunk();
-                    int chunkBlockX = chunkBlock.getX();
-                    int chunkBlockZ = chunkBlock.getZ();
-                    World chunkBlockWorld = cashBlock.getWorld();
-                    if (
-                            chunkBlockWorld == chunkWorld
-                                    && chunkBlockX == chunkEventX
-                                    && chunkBlockZ == chunkEventZ
-                    ) {
-                        List<BlockState> cashBlockStateContainers = pipe.getCashBlockStateContainers();
-                        cashContainersBlock.remove(i);
-                        cashBlockStateContainers.remove(i);
+    private void onChunkUnload(ChunkUnloadEvent event) {
+        if(magicpipes.getPlugin().isStartPipes()) {
+            Chunk chunk = event.getChunk();
+            int chunkX = chunk.getX();
+            int chunkZ = chunk.getZ();
+            World world = event.getWorld();
+            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                for (Pipe pipe : new ArrayList<>(magicpipes.getPlugin().getActivePipe())) {
+                    if (pipe != null) {
+                        if (
+                                pipe.getChunkX() == chunkX
+                                        && pipe.getChunkZ() == chunkZ
+                                        && pipe.getWorld() == world
+                        ) {
+                            magicpipes.getPlugin().getActivePipe().remove(pipe);
+                            pipe.setIsActive(false);
+                        }
+                    } else {
+                        magicpipes.getPlugin().getActivePipe().remove(pipe);
                     }
-                    i++;
                 }
-            }
-        });
+            });
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    private void onChunkLoad(ChunkLoadEvent event) {
+        if(magicpipes.getPlugin().isStartPipes()) {
+            Chunk chunk = event.getChunk();
+            int chunkX = chunk.getX();
+            int chunkZ = chunk.getZ();
+            World world = event.getWorld();
+            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                for (Pipe pipe : magicpipes.getPlugin().getPipes()) {
+                    if (
+                            pipe.getChunkX() == chunkX
+                                    && pipe.getChunkZ() == chunkZ
+                                    && pipe.getWorld() == world
+                    ) {
+                        magicpipes.getPlugin().getActivePipe().add(pipe);
+                        pipe.setIsActive(true);
+                    }
+                }
+            });
+        }
     }
 }

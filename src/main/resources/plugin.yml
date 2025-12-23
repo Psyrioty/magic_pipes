@@ -3,3 +3,9 @@ version: '1.0-SNAPSHOT'
 main: org.psyrioty.magicpipes.magicpipes
 api-version: '1.21'
 depend: [WorldGuard]
+
+commands:
+  pipedebug:
+    usage: /pipedebug <world> <x> <y> <z>
+    permission: admin.minemagic
+    permission-message: "У Вас нет прав."

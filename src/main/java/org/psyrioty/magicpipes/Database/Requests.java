@@ -92,7 +92,8 @@ public class Requests {
                         Bukkit.getWorld(rs.getString("world")),
                         (byte) rs.getInt("type")
                 );
-                pipes.add(pipe);
+                //pipes.add(pipe);
+                magicpipes.getPlugin().getPipes().add(pipe);
             }
             Bukkit.getLogger().info("✅Все трубы загружены.");
         } catch (SQLException e) {
@@ -101,7 +102,9 @@ public class Requests {
             Bukkit.getLogger().info("MagicPipe getAllPipes() error: " + e.getMessage());
             throw new RuntimeException(e);
         }
-
+        Bukkit.getScheduler().runTaskLater(magicpipes.getPlugin(), () -> {
+            magicpipes.getPlugin().setStartPipes(true);
+        }, 20L);
         return pipes;
     }
 

@@ -13,11 +13,15 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.profile.PlayerProfile;
 import org.bukkit.profile.PlayerTextures;
+import org.psyrioty.magicpipes.Commands.debug;
 import org.psyrioty.magicpipes.Database.Requests;
+import org.psyrioty.magicpipes.Listeners.ContainerEvents;
 import org.psyrioty.magicpipes.Listeners.PipeBlockEvents;
 import org.psyrioty.magicpipes.Listeners.PipeItemEvents;
 import org.psyrioty.magicpipes.Listeners.PipeOtherEvents;
 import org.psyrioty.magicpipes.Objects.Pipe;
+import org.psyrioty.magicpipes.Objects.PipeContainer;
+import org.psyrioty.magicpipes.Other.PipeController;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,9 +32,16 @@ public final class magicpipes extends JavaPlugin {
     static magicpipes plugin;
     List<Pipe> pipes = new ArrayList<>();
     PluginManager pm;
+    PipeController pipeController;
 
     FileConfiguration config;
     static File configFile;
+
+    List<Pipe> activePipe = new ArrayList<>();
+    List<PipeContainer> pipeContainers = new ArrayList<>();
+    List<PipeContainer> activePipeContainers = new ArrayList<>();
+
+    boolean startPipes = false;
 
     @Override
     public void onEnable() {
@@ -43,23 +54,28 @@ public final class magicpipes extends JavaPlugin {
         pm.registerEvents(new PipeBlockEvents(), this);
         pm.registerEvents(new PipeItemEvents(), this);
         pm.registerEvents(new PipeOtherEvents(), this);
+        pm.registerEvents(new ContainerEvents(), this);
+
+        this.getCommand("pipedebug").setExecutor(new debug());
 
         Bukkit.getScheduler().runTaskAsynchronously(this, this::setAllPipes);
         try {
-            createCustomRecipe();
+            //createCustomRecipe();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+        pipeController = new PipeController();
     }
 
     @Override
     public void onDisable() {
         // Plugin shutdown logic
         Requests.disconnect();
+        pipeController.stop();
     }
 
     private void setAllPipes(){
-        pipes = Requests.getAllPipes();
+        Requests.getAllPipes();
     }
 
     public void createDataFile() {
@@ -81,6 +97,14 @@ public final class magicpipes extends JavaPlugin {
         }
 
         config = YamlConfiguration.loadConfiguration(configFile);
+    }
+
+    public void setStartPipes(boolean startPipes) {
+        this.startPipes = startPipes;
+    }
+
+    public boolean isStartPipes() {
+        return startPipes;
     }
 
     @Override
@@ -145,6 +169,10 @@ public final class magicpipes extends JavaPlugin {
         Bukkit.addRecipe(recipe);
     }
 
+    public List<Pipe> getActivePipe() {
+        return activePipe;
+    }
+
     public ItemStack createCustomHead(String base64, String id, String name) throws Exception {
         // Декодируем Base64 и получаем URL
         String json = new String(Base64.getDecoder().decode(base64));
@@ -186,9 +214,17 @@ public final class magicpipes extends JavaPlugin {
         return pm;
     }
 
+    public List<PipeContainer> getActivePipeContainers() {
+        return activePipeContainers;
+    }
+
+    public List<PipeContainer> getPipeContainers() {
+        return pipeContainers;
+    }
+
     public Pipe findPipeForXYZWorld(int x, int y, int z, World world){
         if(!pipes.isEmpty()){
-            for(Pipe pipe: pipes){
+            for(Pipe pipe: activePipe){
                 if(
                         x == pipe.getX()
                         && y == pipe.getY()
@@ -203,7 +239,7 @@ public final class magicpipes extends JavaPlugin {
     }
 
     public Inventory getPipeInventoryForInventory(Inventory inventory){
-        for(Pipe pipe: pipes){
+        for(Pipe pipe: activePipe){
             if(pipe.getInventory() == inventory){
                 return pipe.getInventory();
             }
