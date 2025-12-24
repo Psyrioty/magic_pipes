@@ -53,13 +53,12 @@ public class Requests {
         }
     }
 
-    public static void createPipe(Pipe pipe) {
+    public static int createPipe(Pipe pipe) {
         String sql = "INSERT INTO magicpipe_pipe (x, y, z, world, type) VALUES (?, ?, ?, ?, ?)";
+        int generatedId = -1;
 
-        try {
-            Connection conn = getConnection();
-            PreparedStatement stmt = conn.prepareStatement(sql);
-
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             stmt.setInt(1, pipe.getX());
             stmt.setInt(2, pipe.getY());
@@ -67,11 +66,22 @@ public class Requests {
             stmt.setString(4, pipe.getWorld().getName());
             stmt.setInt(5, pipe.getType());
 
-            stmt.executeUpdate();
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                try (ResultSet rs = stmt.getGeneratedKeys()) {
+                    if (rs.next()) {
+                        generatedId = rs.getInt(1);
+                        pipe.setDbId(generatedId); // Устанавливаем ID в объект
+                    }
+                }
+            }
 
         } catch (SQLException e) {
             Bukkit.getLogger().info("MagicPipe createPipe() error: " + e.getMessage());
         }
+
+        return generatedId;
     }
 
 
@@ -90,7 +100,8 @@ public class Requests {
                         rs.getInt("y"),
                         rs.getInt("z"),
                         Bukkit.getWorld(rs.getString("world")),
-                        (byte) rs.getInt("type")
+                        (byte) rs.getInt("type"),
+                        rs.getInt("id")
                 );
                 //pipes.add(pipe);
                 magicpipes.getPlugin().getPipes().add(pipe);

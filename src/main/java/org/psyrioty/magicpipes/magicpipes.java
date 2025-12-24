@@ -37,6 +37,9 @@ public final class magicpipes extends JavaPlugin {
     FileConfiguration config;
     static File configFile;
 
+    File dataFile;
+    public FileConfiguration dataConfig;
+
     List<Pipe> activePipe = new ArrayList<>();
     List<PipeContainer> pipeContainers = new ArrayList<>();
     List<PipeContainer> activePipeContainers = new ArrayList<>();
@@ -45,10 +48,18 @@ public final class magicpipes extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        dataFile = new File(getDataFolder(), "hash.yml");
+        dataConfig = YamlConfiguration.loadConfiguration(dataFile);
+        if (!dataFile.exists()) {
+            saveResource("hash.yml", false); // Копирует из resources плагина
+        }
+        dataConfig = YamlConfiguration.loadConfiguration(dataFile);
+
         plugin = this;
         createDataFile();
 
         Requests.connect();
+
 
         pm = Bukkit.getPluginManager();
         pm.registerEvents(new PipeBlockEvents(), this);
@@ -69,9 +80,25 @@ public final class magicpipes extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        hashSave();
         // Plugin shutdown logic
         Requests.disconnect();
         pipeController.stop();
+    }
+
+    private void asyncHashSave(){
+        Bukkit.getScheduler().runTaskAsynchronously(this, this::hashSave);
+    }
+
+    private void hashSave(){
+        try {
+            dataConfig.save(dataFile);
+        } catch (Exception e) {
+        }
+    }
+
+    public FileConfiguration getDataConfig() {
+        return dataConfig;
     }
 
     private void setAllPipes(){

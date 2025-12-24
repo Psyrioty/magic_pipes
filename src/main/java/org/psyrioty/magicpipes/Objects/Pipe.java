@@ -30,6 +30,7 @@ public class Pipe implements InventoryHolder{
     private final int y;
     private final int z;
     private boolean isRemove = false;
+    private int dbId;
 
     //0 - обычная
     //1 - собиратель
@@ -50,12 +51,13 @@ public class Pipe implements InventoryHolder{
     private List<Pipe> parentPipes = new ArrayList<>();
     private boolean isActive = false;
 
-    public Pipe(int x, int y, int z, World world, byte type) throws Exception {
+    public Pipe(int x, int y, int z, World world, byte type, int dbId) throws Exception {
         this.x = x;
         this.y = y;
         this.z = z;
         this.world = world;
         this.type = type;
+        this.dbId = dbId;
 
         Chunk chunk = world.getChunkAt(new Location(world, x, y, z));
         chunkX = chunk.getX();
@@ -124,12 +126,9 @@ public class Pipe implements InventoryHolder{
                 skullBlock.setOwnerProfile(skullMeta.getOwnerProfile());
                 skullBlock.update();
             }, 1L);
-            if(type == 2){
-                pipeContainers.addAll(checkContainersPlaced(world.getBlockAt(x, y, z)));
-            }else if(type == 1) {
-                takePipeContainers.addAll(checkContainersPlaced(world.getBlockAt(x, y, z)));
-            }
         });
+
+        checkContainersPlaced(world.getBlockAt(x, y, z));
 
 
 
@@ -289,6 +288,14 @@ public class Pipe implements InventoryHolder{
         }
     }
 
+    public void setDbId(int dbId) {
+        this.dbId = dbId;
+    }
+
+    public int getDbId() {
+        return dbId;
+    }
+
     private boolean checkPipeContainer(Pipe pipe, PipeContainer pipeContainer){
         if(
                 (
@@ -387,119 +394,188 @@ public class Pipe implements InventoryHolder{
         return false;
     }
 
-    private List<PipeContainer> checkContainersPlaced(Block block){
+    private void checkContainersPlaced(Block block){
         int x = block.getX();
         int y = block.getY();
         int z = block.getZ();
         World world = block.getWorld();
         List<PipeContainer> pipeContainersCheck = new ArrayList<>();
         Block block1 = world.getBlockAt(x + 1, y, z);
-        if(
-                block1.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block1,
-                    container
-            );
+        if(materialList.contains(block1.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block1.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block1,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
 
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
-            magicpipes.getPlugin().getPipeContainers().add(pipeContainer);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
+
         Block block2 = world.getBlockAt(x - 1, y, z);
-        if(
-                block2.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block2,
-                    container
-            );
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
+        if(materialList.contains(block2.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block2.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block2,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
 
         Block block3 = world.getBlockAt(x, y + 1, z);
-        if(
-                block3.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block3,
-                    container
-            );
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
+        if(materialList.contains(block3.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block3.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block3,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
+
 
         Block block4 = world.getBlockAt(x, y - 1, z);
-        if(
-                block4.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block4,
-                    container
-            );
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
+        if(materialList.contains(block4.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block4.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block4,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
 
+
         Block block5 = world.getBlockAt(x, y, z + 1);
-        if(
-                block5.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block5,
-                    container
-            );
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
+        if(materialList.contains(block5.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block5.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block5,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
 
         Block block6 = world.getBlockAt(x, y, z - 1);
-        if(
-                block6.getState() instanceof Container container
-        ){
-            PipeContainer pipeContainer = new PipeContainer(
-                    block6,
-                    container
-            );
-            if(magicpipes.getPlugin().isStartPipes()) {
-                pipeContainer.setIsActive(true);
-            }else{
-                pipeContainer.setIsActive(false);
-            }
-            pipeContainersCheck.add(pipeContainer);
-            addPipeContainerInList(pipeContainer);
+        if(materialList.contains(block6.getType())) {
+            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                if (
+                        block6.getState() instanceof Container container
+                ) {
+                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                        PipeContainer pipeContainer = new PipeContainer(
+                                block6,
+                                container
+                        );
+                        pipeContainer.getPipeParents().add(this);
+                        if (magicpipes.getPlugin().isStartPipes()) {
+                            pipeContainer.setIsActive(true);
+                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                        } else {
+                            pipeContainer.setIsActive(false);
+                        }
+                        if(type == 1) {
+                            takePipeContainers.add(pipeContainer);
+                        }else if(type == 2){
+                            pipeContainers.add(pipeContainer);
+                        }
+                        addPipeContainerInList(pipeContainer);
+                    });
+                }
+            });
         }
-
-
-        if(x == 3974 && y == 63 && z == 2362){
-        }
-        return pipeContainersCheck;
     }
 
     private void addPipeContainerInList(PipeContainer pipeContainer){
@@ -531,12 +607,15 @@ public class Pipe implements InventoryHolder{
         }
 
         checkTakeInventoriesAsync(result -> {
+            //Bukkit.getLogger().info("1");
             if(result){
                 return;
             }
             for(Pipe pipe: pipes){
                 if(pipe.getIsActive()){
-                    checkContainers(pipe);
+                    List<Pipe> oldPipes = new ArrayList<>();
+                    oldPipes.add(pipe);
+                    checkContainers(pipe, oldPipes);
                 }
             }
         });
@@ -548,17 +627,19 @@ public class Pipe implements InventoryHolder{
         return Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
     }
 
-    private void checkContainers(Pipe pipe){
+    private void checkContainers(Pipe pipe, List<Pipe> oldPipes){
         checkTakeInventoriesAsync(result -> {
-            if(result){
+            oldPipes.add(pipe);
+            //Bukkit.getLogger().info("2");
+            if(result || !isActive){
                 return;
             }
             if(!pipe.getPipeContainers().isEmpty()){
                 giveItems(pipe);
             }
             for(Pipe pipeChildren: pipe.getPipes()){
-                if(pipeChildren != pipe){
-                    checkContainers(pipeChildren);
+                if(pipeChildren != pipe && !oldPipes.contains(pipeChildren)){
+                    checkContainers(pipeChildren, oldPipes);
                 }
             }
         });
@@ -579,6 +660,7 @@ public class Pipe implements InventoryHolder{
 
 
     private void giveItems(Pipe pipe){
+        //Bukkit.getLogger().info("3");
         for(PipeContainer takePipeContainer: takePipeContainers){
             checkOneTakeInventoriesAsync(result -> {
                 if(result){
@@ -591,6 +673,7 @@ public class Pipe implements InventoryHolder{
 
     private void takeInventoryTasks(Pipe pipe, PipeContainer takePipeContainer){
         Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+            //Bukkit.getLogger().info("4");
             if(takePipeContainer.getContainer().getInventory().getSize() < 27){
                 takeInventoryToolTasks(pipe, takePipeContainer);
             }else{
@@ -600,6 +683,7 @@ public class Pipe implements InventoryHolder{
     }
 
     private void takeInventoryToolTasks(Pipe pipe, PipeContainer takePipeContainer){
+        //Bukkit.getLogger().info("5");
         int takeInventoryCount = 0;
         Inventory takeInventory = takePipeContainer.getContainer().getInventory();
         for(ItemStack takeItem: takeInventory.getContents()){
@@ -698,6 +782,7 @@ public class Pipe implements InventoryHolder{
             int takeInventoryCount,
             ItemStack takeItem
     ){
+        //Bukkit.getLogger().info("6");
         for(PipeContainer givePipeContainer: pipe.getPipeContainers()){
             if(takeItem != null && givePipeContainer.isActive) {
                 Inventory giveInventory = givePipeContainer.getContainer().getInventory();
@@ -737,6 +822,7 @@ public class Pipe implements InventoryHolder{
             Inventory giveInventory,
             ItemStack takeItem
     ){
+        //Bukkit.getLogger().info("7");
         Inventory whiteList = pipe.getInventory();
         if(whiteList.isEmpty()){
             //код дальше
@@ -789,6 +875,7 @@ public class Pipe implements InventoryHolder{
             Inventory giveInventory,
             ItemStack takeItem
     ){
+        //Bukkit.getLogger().info("8");
         Inventory whiteList = pipe.getInventory();
         if(whiteList.isEmpty()){
             //код дальше
@@ -847,6 +934,7 @@ public class Pipe implements InventoryHolder{
         if(trueWhiteListSlots.isEmpty()){
             return;
         }
+        //Bukkit.getLogger().info("9");
 
         if(giveInventory.getSize() < 27){
             if(trueWhiteListSlots.getFirst() == -1){

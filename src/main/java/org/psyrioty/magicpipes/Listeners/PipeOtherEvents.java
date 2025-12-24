@@ -279,13 +279,16 @@ public class PipeOtherEvents implements Listener {
             int chunkZ = chunk.getZ();
             World world = event.getWorld();
             Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                List<Pipe> activePipes = magicpipes.getPlugin().getActivePipe();
                 for (Pipe pipe : magicpipes.getPlugin().getPipes()) {
                     if (
                             pipe.getChunkX() == chunkX
-                                    && pipe.getChunkZ() == chunkZ
-                                    && pipe.getWorld() == world
+                            && pipe.getChunkZ() == chunkZ
+                            && pipe.getWorld() == world
                     ) {
-                        magicpipes.getPlugin().getActivePipe().add(pipe);
+                        if(!activePipes.contains(pipe)) {
+                            magicpipes.getPlugin().getActivePipe().add(pipe);
+                        }
                         pipe.setIsActive(true);
                     }
                 }

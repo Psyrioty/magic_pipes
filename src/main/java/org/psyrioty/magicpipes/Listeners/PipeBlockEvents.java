@@ -67,7 +67,8 @@ public class PipeBlockEvents implements Listener {
                                     blockState.getY(),
                                     blockState.getZ(),
                                     blockState.getWorld(),
-                                    type
+                                    type,
+                                    -1
                             );
                         } catch (Exception e) {
                             throw new RuntimeException(e);

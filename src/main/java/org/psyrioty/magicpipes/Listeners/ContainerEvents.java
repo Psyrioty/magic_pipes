@@ -6,6 +6,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -146,6 +147,7 @@ public class ContainerEvents implements Listener {
                                 block,
                                 container
                         );
+
                         magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
                         magicpipes.getPlugin().getPipeContainers().add(pipeContainer);
                         pipeContainer.setIsActive(true);
@@ -219,7 +221,7 @@ public class ContainerEvents implements Listener {
             int chunkX = chunk.getX();
             int chunkZ = chunk.getZ();
             World world = chunk.getWorld();
-            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+            //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
                 for (PipeContainer pipeContainer : new ArrayList<>(magicpipes.getPlugin().getActivePipeContainers())) {
                     if (pipeContainer != null) {
                         if (
@@ -235,7 +237,7 @@ public class ContainerEvents implements Listener {
                         magicpipes.getPlugin().getPipes().remove(pipeContainer);
                     }
                 }
-            });
+            //});
         }
     }
 
@@ -247,7 +249,8 @@ public class ContainerEvents implements Listener {
             int chunkZ = chunk.getZ();
             World world = chunk.getWorld();
 
-            Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+            //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                List<PipeContainer> activePipeContainers = magicpipes.getPlugin().getActivePipeContainers();
                 for (PipeContainer pipeContainer : magicpipes.getPlugin().getPipeContainers()) {
                     if (pipeContainer != null) {
                         if (
@@ -255,34 +258,41 @@ public class ContainerEvents implements Listener {
                             && pipeContainer.getChunkZ() == chunkZ
                             && pipeContainer.getWorld() == world
                         ) {
-                            Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
+                            //Bukkit.getScheduler().runTask(magicpipes.getPlugin(), () -> {
                                 Block block = pipeContainer.getWorld().getBlockAt(
                                         pipeContainer.getX(),
                                         pipeContainer.getY(),
                                         pipeContainer.getZ()
                                 );
                                 if(block.getState() instanceof Container container){
-                                    pipeContainer.setContainer(container);
-                                    magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
-                                    pipeContainer.setIsActive(true);
+                                    //Bukkit.getLogger().info("Контейнер");
+                                    //Bukkit.getLogger().info(pipeContainer.getPipeParents() + "");
+                                    //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                                        pipeContainer.setContainer(container);
+                                        if(!activePipeContainers.contains(pipeContainer)) {
+                                            magicpipes.getPlugin().getActivePipeContainers().add(pipeContainer);
+                                        }
+                                        pipeContainer.setIsActive(true);
+                                    //});
                                 }else{
-                                    Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
+                                    //Bukkit.getLogger().info("Не контейнер");
+                                    //Bukkit.getScheduler().runTaskAsynchronously(magicpipes.getPlugin(), () -> {
                                         for(Pipe pipe: pipeContainer.getPipeParents()){
                                             pipe.getPipeContainers().remove(pipeContainer);
                                             pipe.getTakePipeContainers().remove(pipeContainer);
                                         }
                                         magicpipes.getPlugin().getActivePipeContainers().remove(pipeContainer);
                                         magicpipes.getPlugin().getPipeContainers().remove(pipeContainer);
-                                    });
+                                    //});
                                 }
-                            });
+                            //});
                         }
                     } else {
                         magicpipes.getPlugin().getActivePipeContainers().remove(pipeContainer);
                         magicpipes.getPlugin().getPipeContainers().remove(pipeContainer);
                     }
                 }
-            });
+            //});
         }
     }
 }

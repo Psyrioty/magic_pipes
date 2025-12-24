@@ -21,12 +21,14 @@ public class PipeController {
             if(!magicpipes.getPlugin().isStartPipes()){
                 return;
             }
+            //Bukkit.getLogger().info("Активные трубы: " + magicpipes.getPlugin().getActivePipe().size() + "/" + magicpipes.getPlugin().getPipes().size());
+            //Bukkit.getLogger().info("Активные контейнеры: " + magicpipes.getPlugin().getActivePipeContainers().size() + "/" + magicpipes.getPlugin().getPipeContainers().size());
             for(Pipe pipe: activePipes){
                 if(pipe.getIsActive()){
                     pipe.doTask();
                 }
             }
-        },20L, 20L);
+        },100L, 100L);
     }
 
     public void stop(){
